@@ -1,0 +1,144 @@
+import React, { useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import useFichaje from '../../hooks/useFichaje';
+import { formatearFecha, formatearHora } from '../../utils/dateUtils';
+
+const HistorialFichajes = () => {
+  const { fichajes, eliminarFichaje } = useFichaje();
+  const [paginaActual, setPaginaActual] = useState(1);
+  const fichajesPorPagina = 8;
+  
+  // Ordenar fichajes por fecha (más recientes primero)
+  const fichajesOrdenados = [...fichajes].sort(
+    (a, b) => new Date(b.fecha) - new Date(a.fecha)
+  );
+  
+  // Calcular paginación
+  const totalPaginas = Math.ceil(fichajesOrdenados.length / fichajesPorPagina);
+  const indiceInicio = (paginaActual - 1) * fichajesPorPagina;
+  const fichajesToShow = fichajesOrdenados.slice(
+    indiceInicio, 
+    indiceInicio + fichajesPorPagina
+  );
+  
+  const handlePageChange = (page) => {
+    setPaginaActual(page);
+  };
+  
+  const handleDelete = (id) => {
+    if (window.confirm('¿Está seguro de eliminar este fichaje?')) {
+      eliminarFichaje(id);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <CalendarDays className="h-5 w-5 mr-2" /> Historial de Fichajes
+      </h2>
+      
+      {fichajesToShow.length > 0 ? (
+        <>
+          <div className="bg-gray-50 rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Tipo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Hora
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {fichajesToShow.map((fichaje) => (
+                  <tr key={fichaje.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        fichaje.tipo === 'entrada' 
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {fichaje.tipo === 'entrada' ? '🟢 Entrada' : '🔴 Salida'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {formatearFecha(fichaje.fecha)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {formatearHora(fichaje.fecha)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleDelete(fichaje.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Paginación */}
+          {totalPaginas > 1 && (
+            <div className="flex justify-center items-center mt-4 gap-2">
+              <button
+                onClick={() => handlePageChange(paginaActual - 1)}
+                disabled={paginaActual === 1}
+                className={`p-2 rounded ${
+                  paginaActual === 1 
+                    ? 'text-gray-400 cursor-not-allowed' 
+                    : 'text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              
+              {[...Array(totalPaginas)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => handlePageChange(i + 1)}
+                  className={`px-3 py-1 rounded ${
+                    paginaActual === i + 1
+                      ? 'bg-blue-600 text-white'
+                      : 'text-blue-600 hover:bg-blue-100'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              
+              <button
+                onClick={() => handlePageChange(paginaActual + 1)}
+                disabled={paginaActual === totalPaginas}
+                className={`p-2 rounded ${
+                  paginaActual === totalPaginas
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          No hay fichajes registrados
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default HistorialFichajes;
