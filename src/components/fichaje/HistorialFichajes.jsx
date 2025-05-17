@@ -8,6 +8,7 @@ const HistorialFichajes = () => {
   const { fichajes, eliminarFichaje } = useFichaje();
   const [paginaActual, setPaginaActual] = useState(1);
   const [fichajeParaEditar, setFichajeParaEditar] = useState(null);
+  const [fichajeMenuAbierto, setFichajeMenuAbierto] = useState(null);
   const fichajesPorPagina = 8;
   
   const fichajesOrdenados = [...fichajes].sort(
@@ -24,19 +25,26 @@ const HistorialFichajes = () => {
   
   const handlePageChange = (page) => {
     setPaginaActual(page);
+    setFichajeMenuAbierto(null);
   };
   
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar este fichaje?')) {
       eliminarFichaje(id);
+      setFichajeMenuAbierto(null);
     }
   };
   const handleEdit = (fichaje) => {
     setFichajeParaEditar(fichaje);
+    setFichajeMenuAbierto(null);
   };
   
   const handleCloseModal = () => {
     setFichajeParaEditar(null);
+  };
+
+  const toggleMenu = (id) => {
+    setFichajeMenuAbierto(fichajeMenuAbierto === id ? null : id);
   };
 
 
@@ -119,7 +127,6 @@ const HistorialFichajes = () => {
                       {fichaje.tipo === 'entrada' ? '🟢 Entrada' : '🔴 Salida'}
                     </span>
                     
-                    {/* Menú de acciones en móvil */}
                     <div className="relative">
                       <button 
                         onClick={() => toggleMenu(fichaje.id)}
