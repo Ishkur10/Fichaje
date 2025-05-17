@@ -7,7 +7,7 @@ const Alert = ({
   onClose = null,
   className = '',
 }) => {
-  // Configuración según el tipo de alerta
+
   const config = {
     info: {
       icon: <Info className="h-5 w-5" />,

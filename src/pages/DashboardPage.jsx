@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import Header from '../components/layout/Header';
-import Footer from '../components/layout/Footer';
 import ControlFichaje from '../components/fichaje/ControlFichaje';
 import HistorialFichajes from '../components/fichaje/HistorialFichajes';
 import InformeExcel from '../components/fichaje/InformeExcel';
-import { FileBarChart2, FileClock } from 'lucide-react';
+import ResumenHoras from '../components/fichaje/ResumenHoras';
+import { FileBarChart2, FileClock, FileText, ChartBar } from 'lucide-react';
 import useFichaje from '../hooks/useFichaje';
 
 const DashboardPage = () => {
@@ -18,9 +18,14 @@ const DashboardPage = () => {
       icon: <FileClock className="h-5 w-5" />,
     },
     {
+      id: 'estadisticas',
+      label: 'Estadísticas',
+      icon: <ChartBar className="h-5 w-5" />,
+    },
+    {
       id: 'informes',
       label: 'Informes',
-      icon: <FileBarChart2 className="h-5 w-5" />,
+      icon: <FileText className="h-5 w-5" />,
     },
   ];
   
@@ -29,20 +34,14 @@ const DashboardPage = () => {
       <Header />
       
       <main className="flex-grow container mx-auto px-4 py-6">
-        <div className="bg-red-500 p-10 text-white text-3xl">
-    Probando Tailwind CSS
-  </div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800">
-            Sistema de Fichajes {nombreEmpleado ? `- ${nombreEmpleado}` : ''}
+            Sistema de Fichajes de {nombreEmpleado ? `- ${nombreEmpleado}` : ''}
           </h1>
-          <p className="text-gray-600">
-            Gestiona tus fichajes y genera informes fácilmente
-          </p>
         </div>
         
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex flex-wrap border-b border-gray-200 mb-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -59,8 +58,7 @@ const DashboardPage = () => {
           ))}
         </div>
         
-        {/* Contenido según la pestaña activa */}
-        {activeTab === 'fichajes' ? (
+        {activeTab === 'fichajes' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
               <ControlFichaje />
@@ -69,14 +67,20 @@ const DashboardPage = () => {
               <HistorialFichajes />
             </div>
           </div>
-        ) : (
+        )}
+        
+        {activeTab === 'estadisticas' && (
+          <div>
+            <ResumenHoras />
+          </div>
+        )}
+        
+        {activeTab === 'informes' && (
           <div className="max-w-lg mx-auto">
             <InformeExcel />
           </div>
         )}
       </main>
-      
-      <Footer />
     </div>
   );
 };

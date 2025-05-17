@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Trash2, Edit2 } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 import { formatearFecha, formatearHora } from '../../utils/dateUtils';
+import EditarFichajeModal from './EditarFichajeModal';
 
 const HistorialFichajes = () => {
   const { fichajes, eliminarFichaje } = useFichaje();
   const [paginaActual, setPaginaActual] = useState(1);
+  const [fichajeParaEditar, setFichajeParaEditar] = useState(null);
   const fichajesPorPagina = 8;
   
-  // Ordenar fichajes por fecha (más recientes primero)
   const fichajesOrdenados = [...fichajes].sort(
     (a, b) => new Date(b.fecha) - new Date(a.fecha)
   );
   
-  // Calcular paginación
+
   const totalPaginas = Math.ceil(fichajesOrdenados.length / fichajesPorPagina);
   const indiceInicio = (paginaActual - 1) * fichajesPorPagina;
   const fichajesToShow = fichajesOrdenados.slice(
@@ -30,6 +31,14 @@ const HistorialFichajes = () => {
       eliminarFichaje(id);
     }
   };
+  const handleEdit = (fichaje) => {
+    setFichajeParaEditar(fichaje);
+  };
+  
+  const handleCloseModal = () => {
+    setFichajeParaEditar(null);
+  };
+
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
@@ -75,21 +84,28 @@ const HistorialFichajes = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatearHora(fichaje.fecha)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleDelete(fichaje.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </td>
+                    <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => handleEdit(fichaje)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Editar fichaje"
+                        >
+                          <Edit2 className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(fichaje.id)}
+                          className="text-red-600 hover:text-red-800"
+                          title="Eliminar fichaje"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           
-          {/* Paginación */}
           {totalPaginas > 1 && (
             <div className="flex justify-center items-center mt-4 gap-2">
               <button
@@ -136,6 +152,11 @@ const HistorialFichajes = () => {
         <div className="text-center py-8 text-gray-500">
           No hay fichajes registrados
         </div>
+      )}
+      {fichajeParaEditar && (
+        <EditarFichajeModal
+          fichaje={fichajeParaEditar}
+          onClose={handleCloseModal}/>
       )}
     </div>
   );

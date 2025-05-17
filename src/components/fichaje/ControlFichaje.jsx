@@ -9,7 +9,6 @@ const ControlFichaje = () => {
   const [currentTime, setCurrentTime] = React.useState(new Date());
   const [nombreTemp, setNombreTemp] = React.useState(nombreEmpleado);
 
-  // Actualizar reloj cada segundo
   React.useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -18,17 +17,15 @@ const ControlFichaje = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Actualizar nombre temporal cuando cambia el nombre en el contexto
   React.useEffect(() => {
     setNombreTemp(nombreEmpleado);
   }, [nombreEmpleado]);
 
-  // Manejar cambio de nombre
+
   const handleNombreChange = (e) => {
     setNombreTemp(e.target.value);
   };
 
-  // Guardar nombre
   const handleGuardarNombre = () => {
     setNombreEmpleado(nombreTemp);
   };
@@ -50,6 +47,7 @@ const ControlFichaje = () => {
           />
           <div className="flex items-end ml-2">
             <Button 
+              className='mb-4'
               onClick={handleGuardarNombre}
               variant="success"
               icon={<Save className="h-4 w-4" />}

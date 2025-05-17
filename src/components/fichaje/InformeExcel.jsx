@@ -11,11 +11,9 @@ const InformeExcel = () => {
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [loading, setLoading] = useState(false);
   
-  // Generar lista de años para el selector
   const añoActual = new Date().getFullYear();
   const años = [añoActual - 1, añoActual, añoActual + 1];
   
-  // Lista de meses para el selector
   const meses = [
     { valor: 1, nombre: 'Enero' },
     { valor: 2, nombre: 'Febrero' },
@@ -35,14 +33,11 @@ const InformeExcel = () => {
     try {
       setLoading(true);
       
-      // Definir el rango de fechas
       const fechaInicio = new Date(año, mes - 1, 1);
-      const fechaFin = new Date(año, mes, 0); // Último día del mes
+      const fechaFin = new Date(año, mes, 0);
       
-      // Obtener fichajes del período
       const fichajes = getFichajesPorPeriodo(fechaInicio, fechaFin);
       
-      // Generar y descargar el archivo Excel
       const nombreArchivo = `Fichajes_${nombreEmpleado || 'Empleado'}_${año}_${mes}.xlsx`;
       await generarExcel(fichajes, nombreArchivo, nombreEmpleado);
       
