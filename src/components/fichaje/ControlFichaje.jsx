@@ -1,47 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LogIn, LogOut, Save, StopCircle, Timer, Play, Pause } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import Temporizador from './Temporizador';
 import Alert from '../ui/Alert';
 
-// Estilos para animaciones
-const animationStyles = `
-@keyframes fadeOutUp {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-}
-
-.salida-animada {
-  animation: fadeOutUp 0.5s forwards;
-}
-
-.temporizador-container {
-  transition: all 0.3s ease;
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.entrada-animada {
-  animation: fadeInDown 0.5s forwards;
-}
-`;
+// Componente de temporizador optimizado para prevenir parpadeos
+const TemporizadorOptimizado = ({ colorBorde, colorTexto }) => {
+  const { tiempoSesion, sesionActiva, togglePausaSesion } = useFichaje();
+  const timerRef = useRef(null);
+  
+  // Prevenir renderizados innecesarios manteniendo la referencia
+  const formatearTiempo = (segundos) => {
+    const horas = Math.floor(segundos / 3600);
+    const minutos = Math.floor((segundos % 3600) / 60);
+    const segs = Math.floor(segundos % 60);
+    
+    return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
+  };
+  
+  // Actualizar el DOM directamente sin causar re-renders
+  useEffect(() => {
+    if (timerRef.current) {
+      timerRef.current.textContent = formatearTiempo(tiempoSesion);
+    }
+  }, [tiempoSesion]);
+  
+  // Calcular porcentaje para el círculo de progreso (8 horas = 100%)
+  const horasBase = 8 * 60 * 60; // 8 horas en segundos
+  const porcentaje = Math.min(100, (tiempoSesion / horasBase) * 100);
+  
+  // Manejar pausa/reanudación
+  const handleTogglePausa = () => {
+    if (!sesionActiva) return;
+    togglePausaSesion(!sesionActiva.pausada);
+  };
+  
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`relative flex items-center justify-center w-36 h-36 rounded-full border-4 ${colorBorde}`}>
+        <div 
+          className="absolute top-0 left-0 w-full h-full rounded-full"
+          style={{
+            background: `conic-gradient(${colorBorde.replace('border-', 'rgb(var(--color-')}) ${porcentaje}%, transparent ${porcentaje}%)`,
+            opacity: 0.2
+          }}
+        ></div>
+        
+        <div className="text-center">
+          <div className={`text-2xl font-bold ${colorTexto} tiempo-display`} ref={timerRef}>
+            {formatearTiempo(tiempoSesion)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            Tiempo trabajado
+          </div>
+        </div>
+      </div>
+      
+      {sesionActiva && (
+        <button 
+          onClick={handleTogglePausa}
+          className="mt-2 flex items-center text-sm text-gray-600 hover:text-gray-800"
+        >
+          {sesionActiva.pausada ? (
+            <>
+              <Play className="h-4 w-4 mr-1" /> Continuar
+            </>
+          ) : (
+            <>
+              <Pause className="h-4 w-4 mr-1" /> Pausar
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const ControlFichaje = () => {
   const { 
@@ -109,21 +143,10 @@ const ControlFichaje = () => {
       return;
     }
     
+    // Registrar la entrada
     const result = registrarEntrada();
     
     if (result.success) {
-      // Agregar clase para animación de entrada
-      setTimeout(() => {
-        const temporizadorElement = document.querySelector('.temporizador-container');
-        if (temporizadorElement) {
-          temporizadorElement.classList.add('entrada-animada');
-          // Quitar la clase después de que termine la animación
-          setTimeout(() => {
-            temporizadorElement.classList.remove('entrada-animada');
-          }, 500);
-        }
-      }, 50);
-      
       setAlerta({
         type: 'success',
         message: '¡Entrada registrada correctamente!'
@@ -151,74 +174,49 @@ const ControlFichaje = () => {
       return;
     }
     
-    // Agregar clase para animación de salida
-    const temporizadorElement = document.querySelector('.temporizador-container');
-    if (temporizadorElement) {
-      temporizadorElement.classList.add('salida-animada');
+    // Registrar la salida inmediatamente, sin retrasos
+    const result = registrarSalida();
+    
+    if (result.success) {
+      setAlerta({
+        type: 'success',
+        message: '¡Salida registrada correctamente!'
+      });
+    } else {
+      setAlerta({
+        type: 'error',
+        message: result.message || 'Error al registrar salida'
+      });
     }
     
-    // Pequeño retraso para que se vea la animación antes de actualizar la UI
+    // Ocultar la alerta después de 3 segundos
     setTimeout(() => {
-      const result = registrarSalida();
+      setAlerta(null);
+    }, 3000);
+  };
+  
+  // Manejar cancelación de sesión
+  const handleCancelarSesion = () => {
+    if (window.confirm('¿Estás seguro de cancelar la sesión actual? Se eliminará el registro de entrada.')) {
+      // Cancelar la sesión inmediatamente, sin retrasos
+      const result = cancelarSesionActiva();
       
       if (result.success) {
         setAlerta({
-          type: 'success',
-          message: '¡Salida registrada correctamente!'
+          type: 'info',
+          message: 'Sesión cancelada correctamente'
         });
       } else {
         setAlerta({
           type: 'error',
-          message: result.message || 'Error al registrar salida'
+          message: result.message || 'Error al cancelar la sesión'
         });
-        
-        // Si hubo error, quitar la animación
-        if (temporizadorElement) {
-          temporizadorElement.classList.remove('salida-animada');
-        }
       }
       
       // Ocultar la alerta después de 3 segundos
       setTimeout(() => {
         setAlerta(null);
       }, 3000);
-    }, 100);
-  };
-  
-  // Manejar cancelación de sesión
-  const handleCancelarSesion = () => {
-    if (window.confirm('¿Estás seguro de cancelar la sesión actual? Se eliminará el registro de entrada.')) {
-      // Agregar clase para animación de salida
-      const temporizadorElement = document.querySelector('.temporizador-container');
-      if (temporizadorElement) {
-        temporizadorElement.classList.add('salida-animada');
-      }
-      
-      setTimeout(() => {
-        const result = cancelarSesionActiva();
-        
-        if (result.success) {
-          setAlerta({
-            type: 'info',
-            message: 'Sesión cancelada correctamente'
-          });
-        } else {
-          setAlerta({
-            type: 'error',
-            message: result.message || 'Error al cancelar la sesión'
-          });
-          
-          // Si hubo error, quitar la animación
-          if (temporizadorElement) {
-            temporizadorElement.classList.remove('salida-animada');
-          }
-        }
-        
-        // Ocultar la alerta después de 3 segundos
-        setTimeout(() => {
-          setAlerta(null);
-        }, 3000);
-      }, 100);
     }
   };
   
@@ -258,10 +256,20 @@ const ControlFichaje = () => {
     });
   };
 
+  // Estilo para evitar parpadeos
+  const noFlickerStyle = `
+    .tiempo-display {
+      transition: none;
+    }
+    .temporizador-container {
+      will-change: contents;
+    }
+  `;
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-      {/* Estilos para animaciones */}
-      <style>{animationStyles}</style>
+      {/* Estilo para evitar parpadeos */}
+      <style>{noFlickerStyle}</style>
       
       <h2 className="text-xl font-semibold mb-4">Control de Fichaje</h2>
       
@@ -310,7 +318,7 @@ const ControlFichaje = () => {
           </div>
         </div>
         
-        {/* Sesión activa y temporizador o botón de registro */}
+        {/* Mostrar temporizador o botón de entrada según el estado */}
         {sesionActiva ? (
           <div className={`flex flex-col items-center mb-6 p-4 rounded-lg temporizador-container ${
             sesionActiva.pausada ? 'bg-yellow-50' : 'bg-blue-50'
@@ -328,7 +336,7 @@ const ControlFichaje = () => {
               </div>
             </div>
             
-            <Temporizador 
+            <TemporizadorOptimizado 
               colorBorde={sesionActiva.pausada ? "border-yellow-500" : "border-blue-500"}
               colorTexto={sesionActiva.pausada ? "text-yellow-700" : "text-blue-700"}
             />

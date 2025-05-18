@@ -111,30 +111,35 @@ const fichajeService = {
     return { success: true, sesion: nuevaSesion };
   },
   
-  // Calcular tiempo total de sesión activa
-  calcularTiempoSesionActiva: () => {
+  // Función mejorada para calcular el tiempo de sesión activa
+calcularTiempoSesionActiva: () => {
   const sesion = fichajeService.getSesionActiva();
   
   if (!sesion) {
     return 0;
   }
   
-  // Tiempo base acumulado (útil para pausas)
+  // Tiempo base acumulado (para pausas)
   let tiempoTotal = sesion.tiempoAcumulado || 0;
   
-  // Si la sesión no está pausada, añadimos el tiempo desde la última actualización
+  // Si la sesión no está pausada, añadimos el tiempo transcurrido
   if (!sesion.pausada) {
-    const fechaInicio = new Date(sesion.ultimaActualizacion);
+    const fechaInicio = new Date(sesion.ultimaActualizacion || sesion.fechaInicio);
     const ahora = new Date();
-    const segundosAdicionales = Math.max(0, (ahora - fechaInicio) / 1000);
-    tiempoTotal += segundosAdicionales;
+    
+    // Calculamos segundos transcurridos, asegurándonos de que sea un número positivo
+    // Esto previene problemas con cambios de hora del sistema
+    const segundosTranscurridos = Math.max(0, (ahora - fechaInicio) / 1000);
+    tiempoTotal += segundosTranscurridos;
     
     // Actualizar la marca de tiempo para cálculos futuros
-    // sin afectar al tiempo acumulado ya calculado
     const sesionActualizada = {
       ...sesion,
       ultimaActualizacion: ahora.toISOString()
     };
+    
+    // Guardar en localStorage sin modificar el tiempo acumulado
+    // (solo actualizamos la marca de tiempo)
     fichajeService.setSesionActiva(sesionActualizada);
   }
   
