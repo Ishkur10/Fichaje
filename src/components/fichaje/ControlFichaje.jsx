@@ -247,15 +247,6 @@ const ControlFichaje = () => {
                   </span>
                 )}
               </div>
-              <button 
-      onClick={() => {
-        localStorage.removeItem('sesionActiva');
-        window.location.reload();
-      }}
-      className="mt-4 text-xs text-red-600 underline"
-    >
-      Reiniciar si hay un problema con la sesión
-    </button>
             </div>
             
             <Temporizador 
@@ -292,17 +283,15 @@ const ControlFichaje = () => {
                 Cancelar
               </Button>
             </div>
-          </div>
-        ) : (
-          <div className="flex justify-center mb-6">
-            <Button 
-              onClick={handleRegistrarEntrada}
-              variant="primary"
-              icon={<LogIn className="h-5 w-5" />}
-              className="px-8"
-            >
-              Registrar Entrada
-            </Button>
+             <button 
+      onClick={() => {
+        localStorage.removeItem('sesionActiva');
+        window.location.reload();
+      }}
+      className="mt-4 text-xs text-red-600 underline"
+    >
+      Reiniciar si hay un problema con la sesión
+    </button>
           </div>
         )}
       </div>
