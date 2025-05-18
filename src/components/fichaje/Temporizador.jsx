@@ -1,16 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Clock, Play, Pause } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 
-const formatearTiempo = (segundos) => {
-  const horas = Math.floor(segundos / 3600);
-  const minutos = Math.floor((segundos % 3600) / 60);
-  const segs = Math.floor(segundos % 60);
-  
-  return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
-};
-
-const Temporizador = ({ 
+// Componente de temporizador optimizado para prevenir parpadeos y reinicio
+const TemporizadorOptimizado = ({ 
   colorBorde = 'border-blue-500',
   colorTexto = 'text-blue-700' 
 }) => {
@@ -20,22 +13,25 @@ const Temporizador = ({
     togglePausaSesion 
   } = useFichaje();
   
-  // Usamos un ref para referenciar los elementos DOM de los dígitos
-  const horasRef = useRef(null);
-  const minutosRef = useRef(null);
-  const segundosRef = useRef(null);
+  // Referencia al elemento del temporizador
+  const timerRef = useRef(null);
   
-  // Formateamos y separamos los componentes de tiempo
-  const horasStr = Math.floor(tiempoSesion / 3600).toString().padStart(2, '0');
-  const minutosStr = Math.floor((tiempoSesion % 3600) / 60).toString().padStart(2, '0');
-  const segundosStr = Math.floor(tiempoSesion % 60).toString().padStart(2, '0');
+  // Función para formatear tiempo (no cambia entre renderizados)
+  const formatearTiempo = (segundos) => {
+    const horas = Math.floor(segundos / 3600);
+    const minutos = Math.floor((segundos % 3600) / 60);
+    const segs = Math.floor(segundos % 60);
+    
+    return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
+  };
   
-  // Efecto para actualizar suavemente los dígitos sin parpadeos
+  // Actualizar sólo el texto del temporizador cuando cambia el tiempo
   useEffect(() => {
-    if (horasRef.current) horasRef.current.textContent = horasStr;
-    if (minutosRef.current) minutosRef.current.textContent = minutosStr;
-    if (segundosRef.current) segundosRef.current.textContent = segundosStr;
-  }, [horasStr, minutosStr, segundosStr]);
+    if (timerRef.current) {
+      // Esta línea es clave: actualiza solo el contenido de texto sin re-renderizar
+      timerRef.current.textContent = formatearTiempo(tiempoSesion);
+    }
+  }, [tiempoSesion]);
   
   // Calcular el % de avance para el círculo (considerando 8 horas = 100%)
   const horasBase = 8 * 60 * 60; // 8 horas en segundos
@@ -49,7 +45,7 @@ const Temporizador = ({
   
   return (
     <div className="flex flex-col items-center">
-      <div className={`relative flex items-center justify-center w-36 h-36 rounded-full border-4 ${colorBorde} transition-all duration-300`}>
+      <div className={`relative flex items-center justify-center w-36 h-36 rounded-full border-4 ${colorBorde} transition-colors duration-300`}>
         <div 
           className="absolute top-0 left-0 w-full h-full rounded-full transition-all duration-300"
           style={{
@@ -59,10 +55,9 @@ const Temporizador = ({
         ></div>
         
         <div className="text-center">
-          <div className={`text-2xl font-bold ${colorTexto} transition-none`}>
-            <span ref={horasRef}>{horasStr}</span>:
-            <span ref={minutosRef}>{minutosStr}</span>:
-            <span ref={segundosRef}>{segundosStr}</span>
+          {/* Usamos la referencia para actualizar directamente el DOM */}
+          <div className={`text-2xl font-bold ${colorTexto} timer-text`} ref={timerRef}>
+            {formatearTiempo(tiempoSesion)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
             Tiempo trabajado
@@ -90,4 +85,4 @@ const Temporizador = ({
   );
 };
 
-export default Temporizador;
+export default TemporizadorOptimizado;

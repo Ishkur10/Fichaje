@@ -21,10 +21,20 @@ export const FichajeProvider = ({ children }) => {
       clearInterval(timerInterval.current);
     }
     
-    // Configurar un nuevo intervalo
+    // Configurar un nuevo intervalo que recalcule el tiempo correctamente
     timerInterval.current = setInterval(() => {
+      // Usar la función en fichajeService para cálculos precisos basados en timestamps
       const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
-      setTiempoSesion(tiempoCalculado);
+      
+      // Actualizar el estado solo si el tiempo ha cambiado para evitar renderizados innecesarios
+      setTiempoSesion(tiempoAnterior => {
+        const diferencia = Math.abs(tiempoCalculado - tiempoAnterior);
+        // Solo actualizar si la diferencia es significativa (más de 0.2 segundos)
+        if (diferencia > 0.2) {
+          return tiempoCalculado;
+        }
+        return tiempoAnterior;
+      });
     }, 1000);
   };
   
@@ -40,6 +50,7 @@ export const FichajeProvider = ({ children }) => {
   useEffect(() => {
     const cargarDatos = () => {
       try {
+        console.log("Cargando datos iniciales...");
         // Cargar fichajes y nombre de empleado
         const storedFichajes = fichajeService.getFichajes();
         const storedNombre = fichajeService.getNombreEmpleado();
@@ -47,35 +58,52 @@ export const FichajeProvider = ({ children }) => {
         setFichajes(storedFichajes);
         setNombreEmpleado(storedNombre);
         
-        // CORRECCIÓN: Verificar si hay una sesión activa VÁLIDA
+        // Verificar si hay una sesión activa válida
         const sesionGuardada = fichajeService.getSesionActiva();
+        console.log("Sesión guardada encontrada:", sesionGuardada);
         
         if (sesionGuardada) {
-          // Verificar si la sesión es válida (tiene ID, fecha de inicio, etc.)
+          // Verificar que la sesión tiene los datos mínimos necesarios
           if (sesionGuardada.id && sesionGuardada.fechaInicio) {
-            // Verificar si existe un fichaje de entrada correspondiente
+            // Verificar que existe un fichaje de entrada correspondiente
             const entradaExiste = storedFichajes.some(
               (fichaje) => fichaje.id === sesionGuardada.id && fichaje.tipo === 'entrada'
             );
             
             if (entradaExiste) {
-              // La sesión es válida, la activamos
-              setSesionActiva(sesionGuardada);
+              console.log("Sesión válida encontrada, activando...");
+              // La sesión es válida, aseguramos que tenga ultimaActualizacion
+              let sesionActualizada = {...sesionGuardada};
+              
+              // IMPORTANTE: Asegurarnos de que ultimaActualizacion esté establecido
+              if (!sesionActualizada.ultimaActualizacion) {
+                sesionActualizada.ultimaActualizacion = sesionActualizada.fechaInicio;
+                fichajeService.setSesionActiva(sesionActualizada);
+              }
+              
+              // Activar la sesión en el estado de React
+              setSesionActiva(sesionActualizada);
               
               // Calcular el tiempo transcurrido correctamente
               const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
+              console.log("Tiempo calculado:", tiempoCalculado);
               setTiempoSesion(tiempoCalculado);
               
-              // Iniciar el temporizador en el Service Worker
-              serviceWorkerRegistration.startTimerInSW(
-                sesionGuardada.id,
-                sesionGuardada.fechaInicio,
-                sesionGuardada.tiempoAcumulado || 0,
-                sesionGuardada.pausada || false
-              );
+              // Iniciar el Service Worker de manera segura
+              try {
+                serviceWorkerRegistration.startTimerInSW(
+                  sesionActualizada.id,
+                  sesionActualizada.fechaInicio,
+                  sesionActualizada.tiempoAcumulado || 0,
+                  sesionActualizada.pausada || false
+                );
+              } catch (swError) {
+                console.warn('Error al iniciar el temporizador en el Service Worker:', swError);
+                // Continuamos aunque falle el SW
+              }
               
               // Solo iniciar el intervalo si la sesión no está pausada
-              if (!sesionGuardada.pausada) {
+              if (!sesionActualizada.pausada) {
                 iniciarIntervaloTemporizador();
               }
             } else {
@@ -85,9 +113,11 @@ export const FichajeProvider = ({ children }) => {
             }
           } else {
             // Sesión inválida, la limpiamos
-            console.warn('Sesión inválida detectada. Limpiando...');
+            console.warn('Sesión inválida detectada (faltan datos). Limpiando...');
             fichajeService.clearSesionActiva();
           }
+        } else {
+          console.log("No hay sesión activa guardada");
         }
         
         setLoading(false);
@@ -99,17 +129,22 @@ export const FichajeProvider = ({ children }) => {
     };
     
     cargarDatos();
-  
+
     return () => {
       // Limpiar el intervalo y detener el temporizador al desmontar
       detenerIntervaloTemporizador();
-      serviceWorkerRegistration.stopTimerInSW();
+      try {
+        serviceWorkerRegistration.stopTimerInSW();
+      } catch (error) {
+        console.warn('Error al detener el temporizador en el Service Worker:', error);
+      }
     };
   }, []);
   
   // Efecto para manejar cambios en el estado de pausa de la sesión
   useEffect(() => {
     if (sesionActiva) {
+      console.log("Estado de pausa cambiado:", sesionActiva.pausada);
       if (sesionActiva.pausada) {
         detenerIntervaloTemporizador();
       } else {
@@ -121,19 +156,28 @@ export const FichajeProvider = ({ children }) => {
   // Escuchar eventos de visibilidad de la página
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && sesionActiva) {
+      console.log("Visibilidad cambiada:", document.visibilityState);
+      
+      if (document.visibilityState === 'visible') {
         // Cuando la página vuelve a ser visible y hay una sesión activa,
-        // recalculamos el tiempo transcurrido
-        const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
-        setTiempoSesion(tiempoCalculado);
-        
-        // Reiniciar el intervalo si la sesión no está pausada
-        if (!sesionActiva.pausada) {
-          iniciarIntervaloTemporizador();
+        // recalculamos el tiempo transcurrido usando el método timestamp
+        if (sesionActiva) {
+          console.log("Página visible con sesión activa, recalculando tiempo...");
+          
+          // Recalcular el tiempo transcurrido según el tiempo real
+          const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
+          console.log("Tiempo recalculado:", tiempoCalculado);
+          setTiempoSesion(tiempoCalculado);
+          
+          // Solo reiniciar el intervalo si la sesión no está pausada
+          if (!sesionActiva.pausada) {
+            iniciarIntervaloTemporizador();
+          }
         }
       } else if (document.visibilityState === 'hidden') {
-        // Cuando la página deja de ser visible, pausamos el intervalo de actualización UI
-        // pero NO pausamos la sesión activa
+        // Cuando la página deja de ser visible, pausamos el intervalo para ahorrar recursos
+        // pero NO pausamos la sesión activa - solo detenemos la actualización de la UI
+        console.log("Página oculta, deteniendo intervalo de UI");
         detenerIntervaloTemporizador();
       }
     };
@@ -162,6 +206,7 @@ export const FichajeProvider = ({ children }) => {
   // Registrar entrada
   const registrarEntrada = () => {
     try {
+      console.log("Registrando entrada...");
       // Verificar si ya hay una sesión activa
       if (sesionActiva) {
         setError('Ya tienes una sesión activa. Finaliza la sesión actual antes de iniciar una nueva.');
@@ -178,6 +223,8 @@ export const FichajeProvider = ({ children }) => {
       );
       
       if (result.success) {
+        console.log("Entrada registrada correctamente:", result.fichaje);
+        
         // Guardar información de la sesión activa
         const nuevaSesion = {
           id: result.fichaje.id,
@@ -191,18 +238,23 @@ export const FichajeProvider = ({ children }) => {
         // Actualizar estado
         setSesionActiva(nuevaSesion);
         setTiempoSesion(0);
-        setFichajes(result.fichajes);
+        setFichajes(prevFichajes => [result.fichaje, ...prevFichajes]);
         
         // Guardar en localStorage
         fichajeService.setSesionActiva(nuevaSesion);
         
-        // Iniciar el temporizador en el Service Worker
-        serviceWorkerRegistration.startTimerInSW(
-          nuevaSesion.id,
-          nuevaSesion.fechaInicio,
-          nuevaSesion.tiempoAcumulado,
-          nuevaSesion.pausada
-        );
+        // Iniciar el temporizador en el Service Worker de manera segura
+        try {
+          serviceWorkerRegistration.startTimerInSW(
+            nuevaSesion.id,
+            nuevaSesion.fechaInicio,
+            nuevaSesion.tiempoAcumulado,
+            nuevaSesion.pausada
+          );
+        } catch (swError) {
+          console.warn('Error al iniciar el temporizador en el Service Worker:', swError);
+          // Continuamos aunque falle el SW
+        }
         
         // Iniciar el intervalo del temporizador
         iniciarIntervaloTemporizador();
@@ -212,70 +264,83 @@ export const FichajeProvider = ({ children }) => {
       
       return result;
     } catch (err) {
+      console.error("Error en registrarEntrada:", err);
       const message = 'Error al registrar entrada';
       setError(message);
       return { success: false, message };
     }
   };
   
- // Registrar salida
-const registrarSalida = () => {
-  try {
-    // Verificar si hay una sesión activa
-    if (!sesionActiva) {
-      setError('No hay ninguna sesión activa para registrar la salida.');
-      return { 
-        success: false, 
-        message: 'No hay sesión activa' 
-      };
-    }
-    
-    // Detener el intervalo de actualización primero
-    detenerIntervaloTemporizador();
-    
-    // Intentar comunicarse con el Service Worker de manera segura
+  // Registrar salida
+  const registrarSalida = () => {
     try {
-      serviceWorkerRegistration.stopTimerInSW();
-    } catch (swError) {
-      console.warn('Error al comunicarse con el Service Worker:', swError);
-      // Continuamos con el proceso aunque falle la comunicación con el SW
+      console.log("Registrando salida...");
+      // Verificar si hay una sesión activa
+      if (!sesionActiva) {
+        setError('No hay ninguna sesión activa para registrar la salida.');
+        return { 
+          success: false, 
+          message: 'No hay sesión activa' 
+        };
+      }
+      
+      // Detener el intervalo de actualización primero
+      detenerIntervaloTemporizador();
+      
+      // Intentar comunicarse con el Service Worker de manera segura
+      try {
+        serviceWorkerRegistration.stopTimerInSW();
+      } catch (swError) {
+        console.warn('Error al comunicarse con el Service Worker:', swError);
+        // Continuamos con el proceso aunque falle la comunicación con el SW
+      }
+      
+      // Limpiar la sesión activa en el estado de React (actualiza UI inmediatamente)
+      setSesionActiva(null);
+      setTiempoSesion(0);
+      
+      // Registrar la salida en el servicio
+      const result = fichajeService.registrarFichaje(
+        'salida', 
+        nombreEmpleado
+      );
+      
+      if (result.success) {
+        console.log("Salida registrada correctamente:", result.fichaje);
+        
+        // Actualizar la lista de fichajes en el estado para que el historial se actualice
+        setFichajes(prevFichajes => [result.fichaje, ...prevFichajes]);
+        
+        // Limpiar la sesión en localStorage
+        fichajeService.clearSesionActiva();
+        
+        return result;
+      } else {
+        // En caso de error, restaurar el estado anterior
+        setError(result.message || 'Error al registrar salida');
+        
+        return result;
+      }
+    } catch (err) {
+      console.error("Error en registrarSalida:", err);
+      const message = 'Error al registrar salida';
+      setError(message);
+      return { success: false, message };
     }
-    
-    // Limpiar la sesión activa en el estado de React (actualiza UI inmediatamente)
-    setSesionActiva(null);
-    setTiempoSesion(0);
-    
-    // Registrar la salida en el servicio
-    const result = fichajeService.registrarFichaje(
-      'salida', 
-      nombreEmpleado
-    );
-    
-    if (result.success) {
-      // Actualizar la lista de fichajes en el estado para que el historial se actualice
-      setFichajes(fichajes => [result.fichaje, ...fichajes]);
-      
-      // Limpiar la sesión en localStorage
-      fichajeService.clearSesionActiva();
-      
-      return result;
-    } else {
-      // En caso de error, restaurar el estado anterior
-      setError(result.message || 'Error al registrar salida');
-      
-      return result;
-    }
-  } catch (err) {
-    console.error("Error en registrarSalida:", err);
-    const message = 'Error al registrar salida';
-    setError(message);
-    return { success: false, message };
-  }
-};
+  };
   
   // Pausar o reanudar la sesión
   const togglePausaSesion = (pausar) => {
     try {
+      console.log(`${pausar ? 'Pausando' : 'Reanudando'} sesión...`);
+      
+      if (!sesionActiva) {
+        return {
+          success: false,
+          message: 'No hay sesión activa para pausar/reanudar'
+        };
+      }
+      
       const result = fichajeService.togglePausaSesion(pausar);
       
       if (result.success) {
@@ -289,8 +354,13 @@ const registrarSalida = () => {
           iniciarIntervaloTemporizador();
         }
         
-        // Actualizar el estado de pausa en el Service Worker
-        serviceWorkerRegistration.togglePauseTimerInSW(pausar);
+        // Actualizar el estado de pausa en el Service Worker de manera segura
+        try {
+          serviceWorkerRegistration.togglePauseTimerInSW(pausar);
+        } catch (swError) {
+          console.warn('Error al comunicarse con el Service Worker:', swError);
+          // Continuamos aunque falle el SW
+        }
         
         return result;
       } else {
@@ -298,6 +368,7 @@ const registrarSalida = () => {
         return result;
       }
     } catch (err) {
+      console.error("Error en togglePausaSesion:", err);
       const message = 'Error al cambiar estado de pausa';
       setError(message);
       return { success: false, message };
@@ -307,27 +378,35 @@ const registrarSalida = () => {
   // Cancelar sesión activa
   const cancelarSesionActiva = () => {
     try {
+      console.log("Cancelando sesión activa...");
+      
       if (!sesionActiva) {
         return { success: false, message: 'No hay una sesión activa para cancelar' };
       }
       
       const entradaId = sesionActiva.id;
       
-      // CORRECCIÓN: Primero actualizar estados locales
-      // Detener el intervalo de actualización
+      // Primero detener todos los temporizadores
       detenerIntervaloTemporizador();
+      
+      // Comunicarse con el Service Worker de manera segura
+      try {
+        serviceWorkerRegistration.stopTimerInSW();
+      } catch (swError) {
+        console.warn('Error al comunicarse con el Service Worker:', swError);
+        // Continuamos aunque falle el SW
+      }
       
       // Limpiar el estado local
       setSesionActiva(null);
       setTiempoSesion(0);
       
-      // Detener el temporizador en el Service Worker
-      serviceWorkerRegistration.stopTimerInSW();
-      
       // Después eliminar el fichaje
       const result = fichajeService.eliminarFichaje(entradaId);
       
       if (result.success) {
+        console.log("Sesión cancelada correctamente");
+        
         // Actualizar la lista de fichajes
         setFichajes(result.fichajes);
         
@@ -335,23 +414,12 @@ const registrarSalida = () => {
         fichajeService.clearSesionActiva();
         return { success: true };
       } else {
-        // En caso de error, restaurar el estado anterior
+        // En caso de error, mostrar mensaje
         setError(result.message || 'Error al cancelar la sesión');
-        
-        // CORRECCIÓN: Recuperar la información de la sesión activa
-        const sesionGuardada = fichajeService.getSesionActiva();
-        if (sesionGuardada) {
-          setSesionActiva(sesionGuardada);
-          
-          // Reiniciar el temporizador si no está pausado
-          if (!sesionGuardada.pausada) {
-            iniciarIntervaloTemporizador();
-          }
-        }
-        
         return result;
       }
     } catch (err) {
+      console.error("Error en cancelarSesionActiva:", err);
       const message = 'Error al cancelar la sesión';
       setError(message);
       return { success: false, message };
@@ -361,6 +429,8 @@ const registrarSalida = () => {
   // Editar fichaje
   const editarFichaje = (fichajeId, nuevaFecha) => {
     try {
+      console.log(`Editando fichaje ${fichajeId} a fecha ${nuevaFecha}`);
+      
       // Si es la entrada de una sesión activa, actualizar la sesión
       if (sesionActiva && sesionActiva.id === fichajeId) {
         const nuevaSesion = {
@@ -378,18 +448,25 @@ const registrarSalida = () => {
         // Guardar en localStorage
         fichajeService.setSesionActiva(nuevaSesion);
         
-        // Actualizar el temporizador en el Service Worker
-        serviceWorkerRegistration.startTimerInSW(
-          nuevaSesion.id,
-          nuevaSesion.fechaInicio,
-          nuevaSesion.tiempoAcumulado,
-          nuevaSesion.pausada
-        );
+        // Comunicarse con el Service Worker de manera segura
+        try {
+          // Actualizar el temporizador en el Service Worker
+          serviceWorkerRegistration.startTimerInSW(
+            nuevaSesion.id,
+            nuevaSesion.fechaInicio,
+            nuevaSesion.tiempoAcumulado,
+            nuevaSesion.pausada
+          );
+        } catch (swError) {
+          console.warn('Error al comunicarse con el Service Worker:', swError);
+          // Continuamos aunque falle el SW
+        }
       }
       
       const result = fichajeService.editarFichaje(fichajeId, nuevaFecha);
       
       if (result.success) {
+        console.log("Fichaje editado correctamente");
         setFichajes(result.fichajes);
       } else {
         setError(result.message || 'Error al editar fichaje');
@@ -397,6 +474,7 @@ const registrarSalida = () => {
       
       return result;
     } catch (err) {
+      console.error("Error en editarFichaje:", err);
       const message = 'Error al editar fichaje';
       setError(message);
       return { success: false, message };
@@ -406,6 +484,8 @@ const registrarSalida = () => {
   // Eliminar fichaje
   const eliminarFichaje = (fichajeId) => {
     try {
+      console.log(`Eliminando fichaje ${fichajeId}`);
+      
       // Si es la entrada de una sesión activa, cancelar la sesión
       if (sesionActiva && sesionActiva.id === fichajeId) {
         return cancelarSesionActiva();
@@ -414,6 +494,7 @@ const registrarSalida = () => {
       const result = fichajeService.eliminarFichaje(fichajeId);
       
       if (result.success) {
+        console.log("Fichaje eliminado correctamente");
         setFichajes(result.fichajes);
       } else {
         setError(result.message || 'Error al eliminar fichaje');
@@ -421,6 +502,7 @@ const registrarSalida = () => {
       
       return result;
     } catch (err) {
+      console.error("Error en eliminarFichaje:", err);
       const message = 'Error al eliminar fichaje';
       setError(message);
       return { success: false, message };
@@ -432,6 +514,7 @@ const registrarSalida = () => {
     try {
       return fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
     } catch (err) {
+      console.error("Error en getFichajesPorPeriodo:", err);
       setError('Error al obtener fichajes por período');
       return [];
     }
@@ -442,6 +525,7 @@ const registrarSalida = () => {
     try {
       return fichajeService.getEstadisticas(fechaInicio, fechaFin, sesionActiva);
     } catch (err) {
+      console.error("Error en getEstadisticas:", err);
       setError('Error al obtener estadísticas');
       return null;
     }
@@ -452,6 +536,7 @@ const registrarSalida = () => {
     try {
       return fichajeService.getEstadisticasDetalladas(fechaInicio, fechaFin, sesionActiva);
     } catch (err) {
+      console.error("Error en getEstadisticasDetalladas:", err);
       setError('Error al obtener estadísticas detalladas');
       return null;
     }

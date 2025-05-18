@@ -119,27 +119,38 @@ calcularTiempoSesionActiva: () => {
     return 0;
   }
   
-  // Tiempo base acumulado (para pausas)
+  // Si no hay una fecha de inicio, devolver 0
+  if (!sesion.fechaInicio) {
+    console.warn('Sesión sin fecha de inicio detectada');
+    return 0;
+  }
+  
+  // Obtenemos el tiempo acumulado hasta ahora (para sesiones pausadas anteriormente)
   let tiempoTotal = sesion.tiempoAcumulado || 0;
   
-  // Si la sesión no está pausada, añadimos el tiempo transcurrido
+  // Si la sesión no está pausada, calculamos el tiempo adicional
   if (!sesion.pausada) {
-    const fechaInicio = new Date(sesion.ultimaActualizacion || sesion.fechaInicio);
+    // Usamos la última actualización o la fecha de inicio si no hay última actualización
+    const ultimaActualizacion = sesion.ultimaActualizacion 
+      ? new Date(sesion.ultimaActualizacion) 
+      : new Date(sesion.fechaInicio);
+      
     const ahora = new Date();
     
-    // Calculamos segundos transcurridos, asegurándonos de que sea un número positivo
-    // Esto previene problemas con cambios de hora del sistema
-    const segundosTranscurridos = Math.max(0, (ahora - fechaInicio) / 1000);
+    // Calculamos los segundos transcurridos
+    const segundosTranscurridos = Math.max(0, (ahora - ultimaActualizacion) / 1000);
+    
+    // Añadimos al tiempo total
     tiempoTotal += segundosTranscurridos;
     
-    // Actualizar la marca de tiempo para cálculos futuros
+    // Actualizamos la marca de tiempo de última actualización para futuros cálculos
+    // Pero NO modificamos el tiempo acumulado, ya que lo calculamos en cada llamada
     const sesionActualizada = {
       ...sesion,
       ultimaActualizacion: ahora.toISOString()
     };
     
-    // Guardar en localStorage sin modificar el tiempo acumulado
-    // (solo actualizamos la marca de tiempo)
+    // Guardar en localStorage
     fichajeService.setSesionActiva(sesionActualizada);
   }
   
