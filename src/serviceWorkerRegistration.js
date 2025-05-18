@@ -1,8 +1,5 @@
 // src/serviceWorkerRegistration.js
 
-// Este archivo manejará el registro del Service Worker
-// y la comunicación con él
-
 // Variable para almacenar la referencia al Service Worker
 let swRegistration = null;
 
@@ -44,45 +41,57 @@ export function register() {
   }
 }
 
-// Función para iniciar un temporizador en el Service Worker
+// Función segura para iniciar un temporizador en el Service Worker
 export function startTimerInSW(sessionId, startTime, accumulatedTime, isPaused) {
-  if (!swRegistration) {
-    console.error('Service Worker no registrado');
+  if (!swRegistration || !swRegistration.active) {
+    console.warn('Service Worker no registrado o no activo. No se puede iniciar el temporizador.');
     return;
   }
   
-  swRegistration.active.postMessage({
-    type: 'INIT_TIMER',
-    sessionId,
-    startTime,
-    accumulatedTime,
-    isPaused
-  });
+  try {
+    swRegistration.active.postMessage({
+      type: 'INIT_TIMER',
+      sessionId,
+      startTime,
+      accumulatedTime,
+      isPaused
+    });
+  } catch (error) {
+    console.error('Error al enviar mensaje al Service Worker:', error);
+  }
 }
 
-// Función para detener un temporizador en el Service Worker
+// Función segura para detener un temporizador en el Service Worker
 export function stopTimerInSW() {
-  if (!swRegistration) {
-    console.error('Service Worker no registrado');
+  if (!swRegistration || !swRegistration.active) {
+    console.warn('Service Worker no registrado o no activo. No se puede detener el temporizador.');
     return;
   }
   
-  swRegistration.active.postMessage({
-    type: 'STOP_TIMER'
-  });
+  try {
+    swRegistration.active.postMessage({
+      type: 'STOP_TIMER'
+    });
+  } catch (error) {
+    console.error('Error al enviar mensaje al Service Worker:', error);
+  }
 }
 
-// Función para pausar o reanudar un temporizador en el Service Worker
+// Función segura para pausar o reanudar un temporizador en el Service Worker
 export function togglePauseTimerInSW(isPaused) {
-  if (!swRegistration) {
-    console.error('Service Worker no registrado');
+  if (!swRegistration || !swRegistration.active) {
+    console.warn('Service Worker no registrado o no activo. No se puede cambiar el estado de pausa.');
     return;
   }
   
-  swRegistration.active.postMessage({
-    type: 'TOGGLE_PAUSE',
-    isPaused
-  });
+  try {
+    swRegistration.active.postMessage({
+      type: 'TOGGLE_PAUSE',
+      isPaused
+    });
+  } catch (error) {
+    console.error('Error al enviar mensaje al Service Worker:', error);
+  }
 }
 
 // Función para solicitar permiso para notificaciones
@@ -101,7 +110,16 @@ export function requestNotificationPermission() {
         console.log('Permiso de notificaciones denegado');
         return false;
       }
+    })
+    .catch(error => {
+      console.error('Error al solicitar permiso de notificaciones:', error);
+      return false;
     });
+}
+
+// Función para verificar el estado del Service Worker
+export function isServiceWorkerActive() {
+  return swRegistration !== null && swRegistration.active !== null;
 }
 
 // Función para desuscribirse
@@ -110,6 +128,7 @@ export function unregister() {
     navigator.serviceWorker.ready
       .then(registration => {
         registration.unregister();
+        swRegistration = null;
       })
       .catch(error => {
         console.error(error.message);
