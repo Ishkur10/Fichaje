@@ -1,4 +1,5 @@
 import storageService from './storageService';
+import { calcularEstadisticas } from '../utils/estadisticasUtils';
 
 const FICHAJES_KEY = 'fichajes';
 const EMPLEADO_KEY = 'nombreEmpleado';
