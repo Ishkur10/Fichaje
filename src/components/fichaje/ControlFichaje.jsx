@@ -232,7 +232,7 @@ const ControlFichaje = () => {
         </div>
         
         {/* Sesión activa y temporizador */}
-        {sesionActiva ? (
+        {sesionActiva && (
           <div className={`flex flex-col items-center mb-6 p-4 rounded-lg ${
             sesionActiva.pausada ? 'bg-yellow-50' : 'bg-blue-50'
           }`}>
@@ -247,6 +247,15 @@ const ControlFichaje = () => {
                   </span>
                 )}
               </div>
+              <button 
+      onClick={() => {
+        localStorage.removeItem('sesionActiva');
+        window.location.reload();
+      }}
+      className="mt-4 text-xs text-red-600 underline"
+    >
+      Reiniciar si hay un problema con la sesión
+    </button>
             </div>
             
             <Temporizador 
