@@ -218,67 +218,78 @@ export const FichajeProvider = ({ children }) => {
     }
   };
   
-  // Registrar salida
-  const registrarSalida = () => {
-    try {
-      // Verificar si hay una sesión activa
-      if (!sesionActiva) {
-        setError('No hay ninguna sesión activa para registrar la salida.');
-        return { 
-          success: false, 
-          message: 'No hay sesión activa' 
-        };
-      }
+ // Registrar salida
+const registrarSalida = () => {
+  try {
+    // Verificar si hay una sesión activa
+    if (!sesionActiva) {
+      setError('No hay ninguna sesión activa para registrar la salida.');
+      return { 
+        success: false, 
+        message: 'No hay sesión activa' 
+      };
+    }
+    
+  // Detener el intervalo de actualización y el temporizador del SW
+    detenerIntervaloTemporizador();
+    serviceWorkerRegistration.stopTimerInSW();
+    
+    // Limpiar la sesión activa en el estado de React (actualiza UI inmediatamente)
+    setSesionActiva(null);
+    setTiempoSesion(0);
+    
+    // Registrar la salida en el servicio
+    // IMPORTANTE: Estamos pasando 'salida' como tipo y el nombre del empleado
+    const result = fichajeService.registrarFichaje(
+      'salida', 
+      nombreEmpleado
+    );
+    
+    if (result.success) {
+      // Actualizar la lista de fichajes en el estado para que el historial se actualice
+      // Usamos una función para asegurar que tenemos el estado más reciente
+      setFichajes(fichajesActuales => {
+        // Verificar si el fichaje de salida ya está en la lista
+        const yaExiste = fichajesActuales.some(f => f.id === result.fichaje.id);
+        if (yaExiste) {
+          return fichajesActuales;
+        }
+        // Añadir el nuevo fichaje al principio del array
+        return [result.fichaje, ...fichajesActuales];
+      });
       
-      // CORRECCIÓN: Primero guardar una copia local del ID de sesión para uso posterior
-      const sesionId = sesionActiva.id;
+      // Limpiar la sesión en localStorage
+      fichajeService.clearSesionActiva();
       
-      // CORRECCIÓN: Primero actualizar los estados locales para respuesta inmediata en UI
-      // Detener el intervalo de actualización
-      detenerIntervaloTemporizador();
+      // Para debug - mostrar los fichajes después de actualizar
+      console.log('Fichajes actualizados después de salida:', 
+                 fichajeService.getFichajes());
       
-      // Limpiar la sesión activa en el estado local
-      setSesionActiva(null);
-      setTiempoSesion(0);
+      return result;
+    } else {
+      // En caso de error, restaurar el estado anterior
+      setError(result.message || 'Error al registrar salida');
       
-      // Detener el temporizador en el Service Worker
-      serviceWorkerRegistration.stopTimerInSW();
-      
-      // CORRECCIÓN: Ahora registrar la salida usando el ID guardado
-      const result = fichajeService.registrarFichaje(
-        'salida', 
-        nombreEmpleado
-      );
-      
-      if (result.success) {
-        // Actualizar la lista de fichajes
-        setFichajes(result.fichajes);
+      // Recuperar la información de la sesión activa de localStorage
+      const sesionGuardada = fichajeService.getSesionActiva();
+      if (sesionGuardada) {
+        setSesionActiva(sesionGuardada);
         
-        // Limpiar la sesión en localStorage
-        fichajeService.clearSesionActiva();
-      } else {
-        // En caso de error, restaurar el estado anterior
-        setError(result.message || 'Error al registrar salida');
-        
-        // CORRECCIÓN: Recuperar la información de la sesión activa
-        const sesionGuardada = fichajeService.getSesionActiva();
-        if (sesionGuardada) {
-          setSesionActiva(sesionGuardada);
-          
-          // Reiniciar el temporizador
-          if (!sesionGuardada.pausada) {
-            iniciarIntervaloTemporizador();
-          }
+        // Reiniciar el temporizador si no está pausada
+        if (!sesionGuardada.pausada) {
+          iniciarIntervaloTemporizador();
         }
       }
       
       return result;
-    } catch (err) {
-      const message = 'Error al registrar salida';
-      setError(message);
-      return { success: false, message };
     }
-  };
+  } catch (err) {
+    console.error("Error en registrarSalida:", err);
+    const message = 'Error al registrar salida';
+    setError(message);
+    return { success: false, message };
+  }
+};
   
   // Pausar o reanudar la sesión
   const togglePausaSesion = (pausar) => {

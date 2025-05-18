@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Trash2, Edit2, MoreVertical } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 import { formatearFecha, formatearHora } from '../../utils/dateUtils';
@@ -9,19 +9,35 @@ const HistorialFichajes = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [fichajeParaEditar, setFichajeParaEditar] = useState(null);
   const [fichajeMenuAbierto, setFichajeMenuAbierto] = useState(null);
+  const [fichajesOrdenados, setFichajesOrdenados] = useState([]);
   const fichajesPorPagina = 8;
   
-  const fichajesOrdenados = [...fichajes].sort(
-    (a, b) => new Date(b.fecha) - new Date(a.fecha)
-  );
+  // Actualizar los fichajes ordenados cuando cambia el estado de fichajes
+  useEffect(() => {
+    // Ordenar los fichajes por fecha (más recientes primero)
+    const ordenados = [...fichajes].sort(
+      (a, b) => new Date(b.fecha) - new Date(a.fecha)
+    );
+    
+    console.log('Fichajes actualizados en el historial:', ordenados.length);
+    setFichajesOrdenados(ordenados);
+  }, [fichajes]);
   
-
+  // Calcular total de páginas y fichajes a mostrar
   const totalPaginas = Math.ceil(fichajesOrdenados.length / fichajesPorPagina);
   const indiceInicio = (paginaActual - 1) * fichajesPorPagina;
   const fichajesToShow = fichajesOrdenados.slice(
     indiceInicio, 
     indiceInicio + fichajesPorPagina
   );
+  
+  // Si cambió el número total de fichajes y quedamos en una página vacía,
+  // retroceder a la última página con datos
+  useEffect(() => {
+    if (paginaActual > totalPaginas && totalPaginas > 0) {
+      setPaginaActual(totalPaginas);
+    }
+  }, [totalPaginas, paginaActual]);
   
   const handlePageChange = (page) => {
     setPaginaActual(page);
@@ -34,6 +50,7 @@ const HistorialFichajes = () => {
       setFichajeMenuAbierto(null);
     }
   };
+  
   const handleEdit = (fichaje) => {
     setFichajeParaEditar(fichaje);
     setFichajeMenuAbierto(null);
@@ -46,7 +63,6 @@ const HistorialFichajes = () => {
   const toggleMenu = (id) => {
     setFichajeMenuAbierto(fichajeMenuAbierto === id ? null : id);
   };
-
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
@@ -92,7 +108,8 @@ const HistorialFichajes = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatearHora(fichaje.fecha)}
                     </td>
-                    <div className="flex justify-end space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
                         <button
                           onClick={() => handleEdit(fichaje)}
                           className="text-blue-600 hover:text-blue-800"
@@ -108,13 +125,14 @@ const HistorialFichajes = () => {
                           <Trash2 className="h-5 w-5" />
                         </button>
                       </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-3 mt-4">
             {fichajesToShow.map((fichaje) => (
               <div key={fichaje.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden relative">
                 <div className="p-4">

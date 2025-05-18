@@ -147,20 +147,26 @@ calcularTiempoSesionActiva: () => {
 },
 
   registrarFichaje: (tipo, nombre) => {
-    const fichajes = fichajeService.getFichajes();
+  const fichajes = fichajeService.getFichajes();  
+  const nuevoFichaje = {
+    id: Date.now(),
+    tipo,
+    fecha: new Date().toISOString(),
+    empleado: nombre || 'Sin nombre'
+  };
 
-    const nuevoFichaje = {
-      id: Date.now(),
-      tipo,
-      fecha: new Date().toISOString(),
-      empleado: nombre || 'Sin nombre'
-    };
+  // Agregamos el nuevo fichaje al principio de la lista
+  const nuevosFichajes = [nuevoFichaje, ...fichajes];
+  
+  // Guardamos los cambios en localStorage
+  storageService.setItem(FICHAJES_KEY, nuevosFichajes);
+  
+  // Para debug - mostrar el número de fichajes y el más reciente
+  console.log(`Total fichajes después de registrar ${tipo}:`, nuevosFichajes.length);
+  console.log('Fichaje más reciente:', nuevosFichajes[0]);
 
-    const nuevosFichajes = [nuevoFichaje, ...fichajes];
-    storageService.setItem(FICHAJES_KEY, nuevosFichajes);
-
-    return { success: true, fichaje: nuevoFichaje, fichajes: nuevosFichajes };
-  },
+  return { success: true, fichaje: nuevoFichaje, fichajes: nuevosFichajes };
+},
 
 
   eliminarFichaje: (fichajeId) => {
