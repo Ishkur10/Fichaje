@@ -8,6 +8,7 @@ export const FichajeProvider = ({ children }) => {
   const [nombreEmpleado, setNombreEmpleado] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sesionActiva, setSesionActiva] = useState(null);
   
   useEffect(() => {
     const cargarDatos = () => {
