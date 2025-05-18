@@ -282,7 +282,7 @@ const ControlFichaje = () => {
           />
           <div className="flex items-end ml-2">
             <Button 
-            className='mb-4'
+            className='mb-4 p-4'
               onClick={handleGuardarNombre}
               variant="success"
               icon={<Save className="h-4 w-4" />}
@@ -306,7 +306,7 @@ const ControlFichaje = () => {
         
         {/* Mostrar temporizador o botón de entrada según el estado */}
         {sesionActiva ? (
-          <div className={`flex flex-col items-center mb-6 p-4 rounded-lg temporizador-container ${
+          <div className={`flex flex-col items-center mb-6 rounded-lg temporizador-container ${
             sesionActiva.pausada ? 'bg-yellow-50' : 'bg-blue-50'
           }`}>
             <div className="mb-2 text-center">
