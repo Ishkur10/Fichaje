@@ -6,6 +6,43 @@ import Input from '../ui/Input';
 import Temporizador from './Temporizador';
 import Alert from '../ui/Alert';
 
+// Estilos para animaciones
+const animationStyles = `
+@keyframes fadeOutUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+.salida-animada {
+  animation: fadeOutUp 0.5s forwards;
+}
+
+.temporizador-container {
+  transition: all 0.3s ease;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.entrada-animada {
+  animation: fadeInDown 0.5s forwards;
+}
+`;
+
 const ControlFichaje = () => {
   const { 
     registrarEntrada, 
@@ -75,6 +112,18 @@ const ControlFichaje = () => {
     const result = registrarEntrada();
     
     if (result.success) {
+      // Agregar clase para animación de entrada
+      setTimeout(() => {
+        const temporizadorElement = document.querySelector('.temporizador-container');
+        if (temporizadorElement) {
+          temporizadorElement.classList.add('entrada-animada');
+          // Quitar la clase después de que termine la animación
+          setTimeout(() => {
+            temporizadorElement.classList.remove('entrada-animada');
+          }, 500);
+        }
+      }, 50);
+      
       setAlerta({
         type: 'success',
         message: '¡Entrada registrada correctamente!'
@@ -102,47 +151,74 @@ const ControlFichaje = () => {
       return;
     }
     
-    const result = registrarSalida();
-    
-    if (result.success) {
-      setAlerta({
-        type: 'success',
-        message: '¡Salida registrada correctamente!'
-      });
-    } else {
-      setAlerta({
-        type: 'error',
-        message: result.message || 'Error al registrar salida'
-      });
+    // Agregar clase para animación de salida
+    const temporizadorElement = document.querySelector('.temporizador-container');
+    if (temporizadorElement) {
+      temporizadorElement.classList.add('salida-animada');
     }
     
-    // Ocultar la alerta después de 3 segundos
+    // Pequeño retraso para que se vea la animación antes de actualizar la UI
     setTimeout(() => {
-      setAlerta(null);
-    }, 3000);
-  };
-  
-  // Manejar cancelación de sesión
-  const handleCancelarSesion = () => {
-    if (window.confirm('¿Estás seguro de cancelar la sesión actual? Se eliminará el registro de entrada.')) {
-      const result = cancelarSesionActiva();
+      const result = registrarSalida();
       
       if (result.success) {
         setAlerta({
-          type: 'info',
-          message: 'Sesión cancelada correctamente'
+          type: 'success',
+          message: '¡Salida registrada correctamente!'
         });
       } else {
         setAlerta({
           type: 'error',
-          message: result.message || 'Error al cancelar la sesión'
+          message: result.message || 'Error al registrar salida'
         });
+        
+        // Si hubo error, quitar la animación
+        if (temporizadorElement) {
+          temporizadorElement.classList.remove('salida-animada');
+        }
       }
       
       // Ocultar la alerta después de 3 segundos
       setTimeout(() => {
         setAlerta(null);
       }, 3000);
+    }, 100);
+  };
+  
+  // Manejar cancelación de sesión
+  const handleCancelarSesion = () => {
+    if (window.confirm('¿Estás seguro de cancelar la sesión actual? Se eliminará el registro de entrada.')) {
+      // Agregar clase para animación de salida
+      const temporizadorElement = document.querySelector('.temporizador-container');
+      if (temporizadorElement) {
+        temporizadorElement.classList.add('salida-animada');
+      }
+      
+      setTimeout(() => {
+        const result = cancelarSesionActiva();
+        
+        if (result.success) {
+          setAlerta({
+            type: 'info',
+            message: 'Sesión cancelada correctamente'
+          });
+        } else {
+          setAlerta({
+            type: 'error',
+            message: result.message || 'Error al cancelar la sesión'
+          });
+          
+          // Si hubo error, quitar la animación
+          if (temporizadorElement) {
+            temporizadorElement.classList.remove('salida-animada');
+          }
+        }
+        
+        // Ocultar la alerta después de 3 segundos
+        setTimeout(() => {
+          setAlerta(null);
+        }, 3000);
+      }, 100);
     }
   };
   
@@ -184,6 +260,9 @@ const ControlFichaje = () => {
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+      {/* Estilos para animaciones */}
+      <style>{animationStyles}</style>
+      
       <h2 className="text-xl font-semibold mb-4">Control de Fichaje</h2>
       
       {/* Alerta de información */}
@@ -231,9 +310,9 @@ const ControlFichaje = () => {
           </div>
         </div>
         
-        {/* Sesión activa y temporizador */}
+        {/* Sesión activa y temporizador o botón de registro */}
         {sesionActiva ? (
-          <div className={`flex flex-col items-center mb-6 p-4 rounded-lg ${
+          <div className={`flex flex-col items-center mb-6 p-4 rounded-lg temporizador-container ${
             sesionActiva.pausada ? 'bg-yellow-50' : 'bg-blue-50'
           }`}>
             <div className="mb-2 text-center">
