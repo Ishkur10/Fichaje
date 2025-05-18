@@ -2,6 +2,7 @@ import storageService from './storageService';
 
 const FICHAJES_KEY = 'fichajes';
 const EMPLEADO_KEY = 'nombreEmpleado';
+const SESION_ACTIVA_KEY = 'sesionActiva';
 
 const fichajeService = {
   getFichajes: () => {
@@ -38,6 +39,18 @@ const fichajeService = {
     return storageService.setItem(EMPLEADO_KEY, nombre);
   },
 
+
+   getSesionActiva: () => {
+    return storageService.getItem(SESION_ACTIVA_KEY) || null;
+  },
+
+  setSesionActiva: (sesion) => {
+    return storageService.setItem(SESION_ACTIVA_KEY, sesion);
+  },
+
+  clearSesionActiva: () => {
+    return storageService.removeItem(SESION_ACTIVA_KEY);
+  },
 
   registrarFichaje: (tipo, nombre) => {
     const fichajes = fichajeService.getFichajes();
@@ -78,8 +91,27 @@ const fichajeService = {
     });
   },
 
-  getEstadisticas: (fechaInicio, fechaFin) => {
-    const fichajes = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
+   getEstadisticas: (fechaInicio, fechaFin, sesionActiva = null) => {
+    let fichajes = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
+    
+    if (sesionActiva) {
+
+      const entradaSesion = fichajes.find(f => f.id === sesionActiva.id);
+      
+      if (entradaSesion) {
+
+        const salidaVirtual = {
+          id: 'salida-virtual',
+          tipo: 'salida',
+          fecha: new Date().toISOString(),
+          empleado: sesionActiva.empleado,
+          virtual: true
+        };
+        
+        fichajes = [salidaVirtual, ...fichajes];
+      }
+    }
+    
 
     const fichajesPorDia = {};
     fichajes.forEach(fichaje => {
@@ -89,21 +121,23 @@ const fichajeService = {
       }
       fichajesPorDia[fecha].push(fichaje);
     });
-
+    
     const estadisticas = {
       dias: 0,
       horasTotales: 0,
       minutosTotales: 0,
-      detallesPorDia: []
+      detallesPorDia: [],
+      sesionActivaIncluida: !!sesionActiva
     };
-
+    
     Object.keys(fichajesPorDia).forEach(fecha => {
       const fichajesDia = fichajesPorDia[fecha];
       fichajesDia.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+      
 
       let entrada = null;
       let salida = null;
-
+      
       for (const fichaje of fichajesDia) {
         if (fichaje.tipo === 'entrada' && (!entrada || new Date(fichaje.fecha) < new Date(entrada.fecha))) {
           entrada = fichaje;
@@ -112,19 +146,24 @@ const fichajeService = {
           salida = fichaje;
         }
       }
+      
 
       if (entrada && salida && new Date(salida.fecha) > new Date(entrada.fecha)) {
         const horasTrabajadas = (new Date(salida.fecha) - new Date(entrada.fecha)) / (1000 * 60 * 60);
-
+        
         const horas = Math.floor(horasTrabajadas);
         const minutos = Math.round((horasTrabajadas - horas) * 60);
-
+        
         estadisticas.dias++;
-        estadisticas.horasTotales += horasTrabajadas;
+        estadisticas.horasTotales += horas;
+        estadisticas.minutosTotales += minutos;
+        
         estadisticas.detallesPorDia.push({
           fecha,
+          fechaObj: new Date(entrada.fecha),
           entrada: entrada.fecha,
           salida: salida.fecha,
+          incluyeSesionActiva: !!salida.virtual,
           horas,
           minutos,
           horasTrabajadas
@@ -137,6 +176,7 @@ const fichajeService = {
       estadisticas.horasTotales += horasExtra;
       estadisticas.minutosTotales %= 60;
     }
+    
     return estadisticas;
   }
 };
