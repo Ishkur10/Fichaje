@@ -16,27 +16,29 @@ export const FichajeProvider = ({ children }) => {
   
   // Función para iniciar el intervalo del temporizador
   const iniciarIntervaloTemporizador = () => {
-    // Limpiar cualquier intervalo existente primero
-    if (timerInterval.current) {
-      clearInterval(timerInterval.current);
-    }
+  console.log("Iniciando intervalo del temporizador...");
+  
+  // Limpiar cualquier intervalo existente primero
+  if (timerInterval.current) {
+    console.log("Limpiando intervalo existente");
+    clearInterval(timerInterval.current);
+    timerInterval.current = null;
+  }
+  
+  // Configurar un nuevo intervalo para actualizar el tiempo cada segundo
+  timerInterval.current = setInterval(() => {
+    // Calcular el tiempo transcurrido usando la función de fichajeService
+    const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
     
-    // Configurar un nuevo intervalo que recalcule el tiempo correctamente
-    timerInterval.current = setInterval(() => {
-      // Usar la función en fichajeService para cálculos precisos basados en timestamps
-      const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
-      
-      // Actualizar el estado solo si el tiempo ha cambiado para evitar renderizados innecesarios
-      setTiempoSesion(tiempoAnterior => {
-        const diferencia = Math.abs(tiempoCalculado - tiempoAnterior);
-        // Solo actualizar si la diferencia es significativa (más de 0.2 segundos)
-        if (diferencia > 0.2) {
-          return tiempoCalculado;
-        }
-        return tiempoAnterior;
-      });
-    }, 1000);
-  };
+    // Actualizar el estado con el nuevo tiempo
+    setTiempoSesion(tiempoCalculado);
+    
+    // Depuración
+    console.log("Actualización de temporizador:", tiempoCalculado, "segundos");
+  }, 1000);
+  
+  console.log("Intervalo establecido con ID:", timerInterval.current);
+};
   
   // Detener el intervalo del temporizador
   const detenerIntervaloTemporizador = () => {

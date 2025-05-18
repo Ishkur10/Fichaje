@@ -113,45 +113,51 @@ const fichajeService = {
   
   // Función mejorada para calcular el tiempo de sesión activa
 calcularTiempoSesionActiva: () => {
+  // Obtener la sesión activa
   const sesion = fichajeService.getSesionActiva();
   
+  // Si no hay sesión activa, devolver 0
   if (!sesion) {
+    console.log("No hay sesión activa, tiempo: 0");
     return 0;
   }
   
-  // Si no hay una fecha de inicio, devolver 0
+  // Si no hay fecha de inicio, devolver 0
   if (!sesion.fechaInicio) {
-    console.warn('Sesión sin fecha de inicio detectada');
+    console.warn("Sesión sin fecha de inicio, tiempo: 0");
     return 0;
   }
   
-  // Obtenemos el tiempo acumulado hasta ahora (para sesiones pausadas anteriormente)
+  // Inicializar tiempoTotal con el tiempoAcumulado (para sesiones que han estado pausadas)
   let tiempoTotal = sesion.tiempoAcumulado || 0;
   
-  // Si la sesión no está pausada, calculamos el tiempo adicional
+  // Si la sesión no está pausada, calculamos el tiempo adicional desde la última actualización
   if (!sesion.pausada) {
-    // Usamos la última actualización o la fecha de inicio si no hay última actualización
-    const ultimaActualizacion = sesion.ultimaActualizacion 
+    // Fecha desde la que calcular el tiempo adicional (última actualización o inicio)
+    const referencia = sesion.ultimaActualizacion 
       ? new Date(sesion.ultimaActualizacion) 
       : new Date(sesion.fechaInicio);
-      
+    
+    // Momento actual
     const ahora = new Date();
     
-    // Calculamos los segundos transcurridos
-    const segundosTranscurridos = Math.max(0, (ahora - ultimaActualizacion) / 1000);
+    // Diferencia en segundos (aseguramos que sea positiva)
+    const segundosAdicionales = Math.max(0, (ahora - referencia) / 1000);
     
-    // Añadimos al tiempo total
-    tiempoTotal += segundosTranscurridos;
+    // Añadir al tiempo total
+    tiempoTotal += segundosAdicionales;
     
-    // Actualizamos la marca de tiempo de última actualización para futuros cálculos
-    // Pero NO modificamos el tiempo acumulado, ya que lo calculamos en cada llamada
-    const sesionActualizada = {
+    // Depuración
+    console.log(`Calculando tiempo: acumulado=${sesion.tiempoAcumulado || 0}s + adicional=${segundosAdicionales.toFixed(2)}s = total=${tiempoTotal.toFixed(2)}s`);
+    
+    // Actualizar la marca de tiempo en la sesión guardada para futuros cálculos
+    fichajeService.setSesionActiva({
       ...sesion,
       ultimaActualizacion: ahora.toISOString()
-    };
-    
-    // Guardar en localStorage
-    fichajeService.setSesionActiva(sesionActualizada);
+    });
+  } else {
+    // Si está pausada, solo mostramos el tiempo acumulado
+    console.log(`Sesión pausada, tiempo acumulado: ${tiempoTotal}s`);
   }
   
   return tiempoTotal;

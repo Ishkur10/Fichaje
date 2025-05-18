@@ -1,9 +1,8 @@
-import React, { useRef, useEffect } from 'react';
-import { Clock, Play, Pause } from 'lucide-react';
+import React from 'react';
+import { Play, Pause } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 
-// Componente de temporizador optimizado para prevenir parpadeos y reinicio
-const TemporizadorOptimizado = ({ 
+const Temporizador = ({ 
   colorBorde = 'border-blue-500',
   colorTexto = 'text-blue-700' 
 }) => {
@@ -13,10 +12,7 @@ const TemporizadorOptimizado = ({
     togglePausaSesion 
   } = useFichaje();
   
-  // Referencia al elemento del temporizador
-  const timerRef = useRef(null);
-  
-  // Función para formatear tiempo (no cambia entre renderizados)
+  // Función para formatear tiempo (hh:mm:ss)
   const formatearTiempo = (segundos) => {
     const horas = Math.floor(segundos / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);
@@ -24,14 +20,6 @@ const TemporizadorOptimizado = ({
     
     return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
-  
-  // Actualizar sólo el texto del temporizador cuando cambia el tiempo
-  useEffect(() => {
-    if (timerRef.current) {
-      // Esta línea es clave: actualiza solo el contenido de texto sin re-renderizar
-      timerRef.current.textContent = formatearTiempo(tiempoSesion);
-    }
-  }, [tiempoSesion]);
   
   // Calcular el % de avance para el círculo (considerando 8 horas = 100%)
   const horasBase = 8 * 60 * 60; // 8 horas en segundos
@@ -43,11 +31,17 @@ const TemporizadorOptimizado = ({
     togglePausaSesion(!sesionActiva.pausada);
   };
   
+  // Formatear tiempo para mostrar
+  const tiempoFormateado = formatearTiempo(tiempoSesion);
+  
+  // Depuración en consola
+  console.log('Renderizando Temporizador, tiempo:', tiempoSesion, 'formateado:', tiempoFormateado);
+  
   return (
     <div className="flex flex-col items-center">
-      <div className={`relative flex items-center justify-center w-36 h-36 rounded-full border-4 ${colorBorde} transition-colors duration-300`}>
+      <div className={`relative flex items-center justify-center w-36 h-36 rounded-full border-4 ${colorBorde}`}>
         <div 
-          className="absolute top-0 left-0 w-full h-full rounded-full transition-all duration-300"
+          className="absolute top-0 left-0 w-full h-full rounded-full"
           style={{
             background: `conic-gradient(${colorBorde.replace('border-', 'rgb(var(--color-')}) ${porcentaje}%, transparent ${porcentaje}%)`,
             opacity: 0.2
@@ -55,9 +49,8 @@ const TemporizadorOptimizado = ({
         ></div>
         
         <div className="text-center">
-          {/* Usamos la referencia para actualizar directamente el DOM */}
-          <div className={`text-2xl font-bold ${colorTexto} timer-text`} ref={timerRef}>
-            {formatearTiempo(tiempoSesion)}
+          <div className={`text-2xl font-bold ${colorTexto}`} data-testid="timer-display">
+            {tiempoFormateado}
           </div>
           <div className="text-xs text-gray-500 mt-1">
             Tiempo trabajado
@@ -85,4 +78,4 @@ const TemporizadorOptimizado = ({
   );
 };
 
-export default TemporizadorOptimizado;
+export default Temporizador;
