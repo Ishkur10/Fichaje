@@ -113,54 +113,39 @@ const fichajeService = {
   
   // Función mejorada para calcular el tiempo de sesión activa
 calcularTiempoSesionActiva: () => {
-  // Obtener la sesión activa
   const sesion = fichajeService.getSesionActiva();
   
-  // Si no hay sesión activa, devolver 0
-  if (!sesion) {
-    console.log("No hay sesión activa, tiempo: 0");
+  if (!sesion || !sesion.fechaInicio) {
     return 0;
   }
   
-  // Si no hay fecha de inicio, devolver 0
-  if (!sesion.fechaInicio) {
-    console.warn("Sesión sin fecha de inicio, tiempo: 0");
-    return 0;
-  }
+  // Get accumulated time from session
+  let tiempoAcumulado = sesion.tiempoAcumulado || 0;
   
-  // Inicializar tiempoTotal con el tiempoAcumulado (para sesiones que han estado pausadas)
-  let tiempoTotal = sesion.tiempoAcumulado || 0;
-  
-  // Si la sesión no está pausada, calculamos el tiempo adicional desde la última actualización
+  // If session is not paused, calculate additional time
   if (!sesion.pausada) {
-    // Fecha desde la que calcular el tiempo adicional (última actualización o inicio)
-    const referencia = sesion.ultimaActualizacion 
+    const ultimaActualizacion = sesion.ultimaActualizacion 
       ? new Date(sesion.ultimaActualizacion) 
       : new Date(sesion.fechaInicio);
-    
-    // Momento actual
+      
     const ahora = new Date();
+    const segundosAdicionales = Math.max(0, (ahora - ultimaActualizacion) / 1000);
     
-    // Diferencia en segundos (aseguramos que sea positiva)
-    const segundosAdicionales = Math.max(0, (ahora - referencia) / 1000);
+    // Calculate total time
+    const tiempoTotal = tiempoAcumulado + segundosAdicionales;
     
-    // Añadir al tiempo total
-    tiempoTotal += segundosAdicionales;
-    
-    // Depuración
-    console.log(`Calculando tiempo: acumulado=${sesion.tiempoAcumulado || 0}s + adicional=${segundosAdicionales.toFixed(2)}s = total=${tiempoTotal.toFixed(2)}s`);
-    
-    // Actualizar la marca de tiempo en la sesión guardada para futuros cálculos
+    // Update BOTH timestamp AND accumulated time in storage
     fichajeService.setSesionActiva({
       ...sesion,
-      ultimaActualizacion: ahora.toISOString()
+      ultimaActualizacion: ahora.toISOString(),
+      tiempoAcumulado: tiempoTotal  // This is the critical line!
     });
-  } else {
-    // Si está pausada, solo mostramos el tiempo acumulado
-    console.log(`Sesión pausada, tiempo acumulado: ${tiempoTotal}s`);
+    
+    return tiempoTotal;
   }
   
-  return tiempoTotal;
+  // If paused, just return accumulated time
+  return tiempoAcumulado;
 },
 
   registrarFichaje: (tipo, nombre) => {
