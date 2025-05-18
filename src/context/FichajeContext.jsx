@@ -48,14 +48,12 @@ export const FichajeProvider = ({ children }) => {
     };
     
     cargarDatos();
-    
-    // Limpiar temporizador del Service Worker al desmontar
+  
     return () => {
       serviceWorkerRegistration.stopTimerInSW();
     };
   }, []);
   
-  // Actualizador periódico del tiempo cuando hay una sesión activa
   useEffect(() => {
     let intervalo = null;
     
