@@ -12,9 +12,7 @@ const HistorialFichajes = () => {
   const [fichajesOrdenados, setFichajesOrdenados] = useState([]);
   const fichajesPorPagina = 8;
   
-  // Actualizar los fichajes ordenados cuando cambia el estado de fichajes
   useEffect(() => {
-    // Ordenar los fichajes por fecha (más recientes primero)
     const ordenados = [...fichajes].sort(
       (a, b) => new Date(b.fecha) - new Date(a.fecha)
     );
@@ -23,7 +21,6 @@ const HistorialFichajes = () => {
     setFichajesOrdenados(ordenados);
   }, [fichajes]);
   
-  // Calcular total de páginas y fichajes a mostrar
   const totalPaginas = Math.ceil(fichajesOrdenados.length / fichajesPorPagina);
   const indiceInicio = (paginaActual - 1) * fichajesPorPagina;
   const fichajesToShow = fichajesOrdenados.slice(
@@ -31,8 +28,6 @@ const HistorialFichajes = () => {
     indiceInicio + fichajesPorPagina
   );
   
-  // Si cambió el número total de fichajes y quedamos en una página vacía,
-  // retroceder a la última página con datos
   useEffect(() => {
     if (paginaActual > totalPaginas && totalPaginas > 0) {
       setPaginaActual(totalPaginas);

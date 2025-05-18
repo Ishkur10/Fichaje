@@ -5,12 +5,10 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Alert from '../ui/Alert';
 
-// Componente de temporizador optimizado para prevenir parpadeos
 const TemporizadorOptimizado = ({ colorBorde, colorTexto }) => {
   const { tiempoSesion, sesionActiva, togglePausaSesion } = useFichaje();
   const timerRef = useRef(null);
   
-  // Prevenir renderizados innecesarios manteniendo la referencia
   const formatearTiempo = (segundos) => {
     const horas = Math.floor(segundos / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);
@@ -19,18 +17,16 @@ const TemporizadorOptimizado = ({ colorBorde, colorTexto }) => {
     return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
   
-  // Actualizar el DOM directamente sin causar re-renders
+
   useEffect(() => {
     if (timerRef.current) {
       timerRef.current.textContent = formatearTiempo(tiempoSesion);
     }
   }, [tiempoSesion]);
   
-  // Calcular porcentaje para el círculo de progreso (8 horas = 100%)
-  const horasBase = 8 * 60 * 60; // 8 horas en segundos
+  const horasBase = 8 * 60 * 60; 
   const porcentaje = Math.min(100, (tiempoSesion / horasBase) * 100);
-  
-  // Manejar pausa/reanudación
+
   const handleTogglePausa = () => {
     if (!sesionActiva) return;
     togglePausaSesion(!sesionActiva.pausada);
@@ -92,7 +88,7 @@ const ControlFichaje = () => {
   const [nombreTemp, setNombreTemp] = useState(nombreEmpleado);
   const [alerta, setAlerta] = useState(null);
   
-  // Actualizar reloj cada segundo
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -101,17 +97,17 @@ const ControlFichaje = () => {
     return () => clearInterval(interval);
   }, []);
   
-  // Actualizar nombre temporal cuando cambia el nombre en el contexto
+  
   useEffect(() => {
     setNombreTemp(nombreEmpleado);
   }, [nombreEmpleado]);
   
-  // Manejar cambio de nombre
+
   const handleNombreChange = (e) => {
     setNombreTemp(e.target.value);
   };
   
-  // Guardar nombre
+
   const handleGuardarNombre = () => {
     if (!nombreTemp.trim()) {
       setAlerta({
@@ -127,13 +123,12 @@ const ControlFichaje = () => {
       message: '¡Nombre guardado correctamente!'
     });
     
-    // Ocultar la alerta después de 3 segundos
+  
     setTimeout(() => {
       setAlerta(null);
     }, 3000);
   };
   
-  // Manejar registro de entrada
   const handleRegistrarEntrada = () => {
     if (!nombreEmpleado.trim()) {
       setAlerta({
@@ -143,7 +138,6 @@ const ControlFichaje = () => {
       return;
     }
     
-    // Registrar la entrada
     const result = registrarEntrada();
     
     if (result.success) {
@@ -158,13 +152,12 @@ const ControlFichaje = () => {
       });
     }
     
-    // Ocultar la alerta después de 3 segundos
     setTimeout(() => {
       setAlerta(null);
     }, 3000);
   };
   
-  // Manejar registro de salida
+
   const handleRegistrarSalida = () => {
     if (!sesionActiva) {
       setAlerta({
@@ -174,7 +167,6 @@ const ControlFichaje = () => {
       return;
     }
     
-    // Registrar la salida inmediatamente, sin retrasos
     const result = registrarSalida();
     
     if (result.success) {
@@ -189,16 +181,13 @@ const ControlFichaje = () => {
       });
     }
     
-    // Ocultar la alerta después de 3 segundos
     setTimeout(() => {
       setAlerta(null);
     }, 3000);
   };
   
-  // Manejar cancelación de sesión
   const handleCancelarSesion = () => {
     if (window.confirm('¿Estás seguro de cancelar la sesión actual? Se eliminará el registro de entrada.')) {
-      // Cancelar la sesión inmediatamente, sin retrasos
       const result = cancelarSesionActiva();
       
       if (result.success) {
@@ -212,15 +201,13 @@ const ControlFichaje = () => {
           message: result.message || 'Error al cancelar la sesión'
         });
       }
-      
-      // Ocultar la alerta después de 3 segundos
+
       setTimeout(() => {
         setAlerta(null);
       }, 3000);
     }
   };
   
-  // Manejar pausa/reanudación
   const handleTogglePausa = () => {
     const pausar = !sesionActiva?.pausada;
     
@@ -238,13 +225,12 @@ const ControlFichaje = () => {
       });
     }
     
-    // Ocultar la alerta después de 3 segundos
     setTimeout(() => {
       setAlerta(null);
     }, 3000);
   };
   
-  // Formatear la fecha de inicio de sesión
+
   const formatearFechaInicio = () => {
     if (!sesionActiva) return '';
     
@@ -256,7 +242,6 @@ const ControlFichaje = () => {
     });
   };
 
-  // Estilo para evitar parpadeos
   const noFlickerStyle = `
     .tiempo-display {
       transition: none;
@@ -297,6 +282,7 @@ const ControlFichaje = () => {
           />
           <div className="flex items-end ml-2">
             <Button 
+            className='mb-4'
               onClick={handleGuardarNombre}
               variant="success"
               icon={<Save className="h-4 w-4" />}
@@ -343,6 +329,7 @@ const ControlFichaje = () => {
             
             <div className="grid grid-cols-3 gap-3 w-full mt-6">
               <Button 
+              className='p-2'
                 onClick={handleTogglePausa}
                 variant={sesionActiva.pausada ? "warning" : "info"}
                 icon={sesionActiva.pausada ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
@@ -352,6 +339,7 @@ const ControlFichaje = () => {
               </Button>
               
               <Button 
+                className='p-2'
                 onClick={handleRegistrarSalida}
                 variant="primary"
                 icon={<LogOut className="h-5 w-5" />}
@@ -362,6 +350,7 @@ const ControlFichaje = () => {
               </Button>
               
               <Button 
+              className='p-2'
                 onClick={handleCancelarSesion}
                 variant="danger"
                 icon={<StopCircle className="h-5 w-5" />}

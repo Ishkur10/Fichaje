@@ -44,17 +44,17 @@ const fichajeService = {
    getSesionActiva: () => {
     const sesion = storageService.getItem(SESION_ACTIVA_KEY);
     if (sesion) {
-      // Asegurarnos de que la sesión tiene un tiempoAcumulado (para pausas)
+
       if (sesion.tiempoAcumulado === undefined) {
         sesion.tiempoAcumulado = 0;
       }
       
-      // Asegurarnos de que tiene una marca de tiempo de la última actualización
+ 
       if (!sesion.ultimaActualizacion) {
         sesion.ultimaActualizacion = new Date().toISOString();
       }
       
-      // Asegurarnos de que tiene un estado de pausa
+
       if (sesion.pausada === undefined) {
         sesion.pausada = false;
       }
@@ -71,13 +71,12 @@ const fichajeService = {
     
     return storageService.setItem(SESION_ACTIVA_KEY, sesionActualizada);
   },
-  
-  // Limpiar sesión activa
+
   clearSesionActiva: () => {
     return storageService.removeItem(SESION_ACTIVA_KEY);
   },
   
-  // Pausar o reanudar una sesión activa
+
   togglePausaSesion: (pausar) => {
     const sesion = fichajeService.getSesionActiva();
     
@@ -86,7 +85,7 @@ const fichajeService = {
     }
     
     if (pausar === sesion.pausada) {
-      // Si ya está en el estado deseado, no hacemos nada
+
       return { success: true, sesion };
     }
     
@@ -94,15 +93,15 @@ const fichajeService = {
     let nuevaSesion = { ...sesion };
     
     if (pausar) {
-      // Si estamos pausando, calculamos el tiempo acumulado hasta ahora
+
       const ultimaActualizacion = new Date(sesion.ultimaActualizacion);
       const segundosDesdeUltimaActualizacion = (ahora - ultimaActualizacion) / 1000;
       
-      // Sumamos al tiempo acumulado
+
       nuevaSesion.tiempoAcumulado = (sesion.tiempoAcumulado || 0) + segundosDesdeUltimaActualizacion;
     }
     
-    // Actualizamos el estado de pausa y la marca de tiempo
+
     nuevaSesion.pausada = pausar;
     nuevaSesion.ultimaActualizacion = ahora.toISOString();
     
@@ -111,7 +110,7 @@ const fichajeService = {
     return { success: true, sesion: nuevaSesion };
   },
   
-  // Función mejorada para calcular el tiempo de sesión activa
+
 calcularTiempoSesionActiva: () => {
   const sesion = fichajeService.getSesionActiva();
   
@@ -119,10 +118,10 @@ calcularTiempoSesionActiva: () => {
     return 0;
   }
   
-  // Get accumulated time from session
+
   let tiempoAcumulado = sesion.tiempoAcumulado || 0;
   
-  // If session is not paused, calculate additional time
+
   if (!sesion.pausada) {
     const ultimaActualizacion = sesion.ultimaActualizacion 
       ? new Date(sesion.ultimaActualizacion) 
@@ -131,20 +130,19 @@ calcularTiempoSesionActiva: () => {
     const ahora = new Date();
     const segundosAdicionales = Math.max(0, (ahora - ultimaActualizacion) / 1000);
     
-    // Calculate total time
+  
     const tiempoTotal = tiempoAcumulado + segundosAdicionales;
     
-    // Update BOTH timestamp AND accumulated time in storage
+   
     fichajeService.setSesionActiva({
       ...sesion,
       ultimaActualizacion: ahora.toISOString(),
-      tiempoAcumulado: tiempoTotal  // This is the critical line!
+      tiempoAcumulado: tiempoTotal 
     });
     
     return tiempoTotal;
   }
-  
-  // If paused, just return accumulated time
+
   return tiempoAcumulado;
 },
 
@@ -157,13 +155,13 @@ calcularTiempoSesionActiva: () => {
     empleado: nombre || 'Sin nombre'
   };
 
-  // Agregamos el nuevo fichaje al principio de la lista
+
   const nuevosFichajes = [nuevoFichaje, ...fichajes];
   
-  // Guardamos los cambios en localStorage
+
   storageService.setItem(FICHAJES_KEY, nuevosFichajes);
   
-  // Para debug - mostrar el número de fichajes y el más reciente
+
   console.log(`Total fichajes después de registrar ${tipo}:`, nuevosFichajes.length);
   console.log('Fichaje más reciente:', nuevosFichajes[0]);
 
@@ -221,17 +219,17 @@ calcularTiempoSesionActiva: () => {
     return calcularEstadisticas(fichajesConSesionActual, fechaInicio, fechaFin);
   },
   
-  // Obtener estadísticas de fichajes (horas trabajadas, etc.)
+
   getEstadisticas: (fechaInicio, fechaFin, sesionActiva = null) => {
     let fichajes = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
     
-    // Si hay una sesión activa, añadir un fichaje virtual de salida
+
     if (sesionActiva) {
-      // Verificar si la entrada de la sesión está dentro del período
+
       const entradaSesion = fichajes.find(f => f.id === sesionActiva.id);
       
       if (entradaSesion) {
-        // Crear un fichaje virtual de salida con la hora actual
+
         const salidaVirtual = {
           id: 'salida-virtual',
           tipo: 'salida',
@@ -240,12 +238,12 @@ calcularTiempoSesionActiva: () => {
           virtual: true
         };
         
-        // Añadir a la lista de fichajes
+
         fichajes = [salidaVirtual, ...fichajes];
       }
     }
     
-    // Organizar fichajes por día
+
     const fichajesPorDia = {};
     fichajes.forEach(fichaje => {
       const fecha = new Date(fichaje.fecha).toLocaleDateString();
@@ -255,7 +253,7 @@ calcularTiempoSesionActiva: () => {
       fichajesPorDia[fecha].push(fichaje);
     });
     
-    // Calcular horas trabajadas por día
+
     const estadisticas = {
       dias: 0,
       horasTotales: 0,
@@ -268,7 +266,7 @@ calcularTiempoSesionActiva: () => {
       const fichajesDia = fichajesPorDia[fecha];
       fichajesDia.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
       
-      // Buscar primera entrada y última salida
+
       let entrada = null;
       let salida = null;
       
@@ -281,11 +279,11 @@ calcularTiempoSesionActiva: () => {
         }
       }
       
-      // Calcular horas si hay entrada y salida
+
       if (entrada && salida && new Date(salida.fecha) > new Date(entrada.fecha)) {
         const horasTrabajadas = (new Date(salida.fecha) - new Date(entrada.fecha)) / (1000 * 60 * 60);
         
-        // Calcular horas y minutos
+
         const horas = Math.floor(horasTrabajadas);
         const minutos = Math.round((horasTrabajadas - horas) * 60);
         
@@ -293,7 +291,6 @@ calcularTiempoSesionActiva: () => {
         estadisticas.horasTotales += horas;
         estadisticas.minutosTotales += minutos;
         
-        // Añadir detalles por día
         estadisticas.detallesPorDia.push({
           fecha,
           fechaObj: new Date(entrada.fecha),
@@ -307,7 +304,6 @@ calcularTiempoSesionActiva: () => {
       }
     });
     
-    // Normalizar minutos (60 minutos = 1 hora)
     if (estadisticas.minutosTotales >= 60) {
       const horasExtra = Math.floor(estadisticas.minutosTotales / 60);
       estadisticas.horasTotales += horasExtra;

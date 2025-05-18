@@ -12,7 +12,6 @@ const Temporizador = ({
     togglePausaSesion 
   } = useFichaje();
   
-  // Función para formatear tiempo (hh:mm:ss)
   const formatearTiempo = (segundos) => {
     const horas = Math.floor(segundos / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);
@@ -21,20 +20,17 @@ const Temporizador = ({
     return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
   
-  // Calcular el % de avance para el círculo (considerando 8 horas = 100%)
-  const horasBase = 8 * 60 * 60; // 8 horas en segundos
   const porcentaje = Math.min(100, (tiempoSesion / horasBase) * 100);
   
-  // Manejar la pausa/reanudación
   const handleTogglePausa = () => {
     if (!sesionActiva) return;
     togglePausaSesion(!sesionActiva.pausada);
   };
   
-  // Formatear tiempo para mostrar
+
   const tiempoFormateado = formatearTiempo(tiempoSesion);
   
-  // Depuración en consola
+
   console.log('Renderizando Temporizador, tiempo:', tiempoSesion, 'formateado:', tiempoFormateado);
   
   return (
