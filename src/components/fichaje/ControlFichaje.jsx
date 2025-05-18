@@ -329,7 +329,7 @@ const ControlFichaje = () => {
             
             <div className="grid grid-cols-3 gap-3 w-full mt-6">
               <Button 
-              className='p-2'
+              className='p-4'
                 onClick={handleTogglePausa}
                 variant={sesionActiva.pausada ? "warning" : "info"}
                 icon={sesionActiva.pausada ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
@@ -339,7 +339,7 @@ const ControlFichaje = () => {
               </Button>
               
               <Button 
-                className='p-2'
+                className='p-4'
                 onClick={handleRegistrarSalida}
                 variant="primary"
                 icon={<LogOut className="h-5 w-5" />}
@@ -350,7 +350,7 @@ const ControlFichaje = () => {
               </Button>
               
               <Button 
-              className='p-2'
+              className='p-4'
                 onClick={handleCancelarSesion}
                 variant="danger"
                 icon={<StopCircle className="h-5 w-5" />}
