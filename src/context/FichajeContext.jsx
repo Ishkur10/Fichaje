@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import fichajeService from '../services/fichajeService';
 import * as serviceWorkerRegistration from '../serviceWorkerRegistration';
 
@@ -12,6 +12,7 @@ export const FichajeProvider = ({ children }) => {
   const [error, setError] = useState('');
   const [sesionActiva, setSesionActiva] = useState(null);
   const [tiempoSesion, setTiempoSesion] = useState(0);
+  const timerInterval = useRef(null);
   
   // Cargar fichajes al iniciar
   useEffect(() => {
@@ -23,20 +24,27 @@ export const FichajeProvider = ({ children }) => {
         
         setFichajes(storedFichajes);
         setNombreEmpleado(storedNombre);
-        setSesionActiva(sesionGuardada);
         
-        // Si hay una sesión activa, calcular el tiempo transcurrido
+        // Si hay una sesión activa, la cargamos y configuramos el temporizador
         if (sesionGuardada) {
+          setSesionActiva(sesionGuardada);
+          
+          // Calcular el tiempo transcurrido correctamente
           const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
           setTiempoSesion(tiempoCalculado);
           
-          // Iniciar el temporizador en el Service Worker
+          // Iniciar el temporizador en el Service Worker solo si hay una sesión activa
           serviceWorkerRegistration.startTimerInSW(
             sesionGuardada.id,
             sesionGuardada.fechaInicio,
             sesionGuardada.tiempoAcumulado,
             sesionGuardada.pausada
           );
+          
+          // Iniciar el intervalo de actualización del temporizador
+          if (!sesionGuardada.pausada) {
+            iniciarIntervaloTemporizador();
+          }
         }
         
         setLoading(false);
@@ -50,34 +58,64 @@ export const FichajeProvider = ({ children }) => {
     cargarDatos();
   
     return () => {
+      // Limpiar el intervalo y detener el temporizador al desmontar
+      if (timerInterval.current) {
+        clearInterval(timerInterval.current);
+      }
       serviceWorkerRegistration.stopTimerInSW();
     };
   }, []);
   
-  useEffect(() => {
-    let intervalo = null;
-    
-    if (sesionActiva && !sesionActiva.pausada) {
-      // Actualizar el tiempo de la sesión cada segundo
-      intervalo = setInterval(() => {
-        const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
-        setTiempoSesion(tiempoCalculado);
-      }, 1000);
+  // Función para iniciar el intervalo del temporizador
+  const iniciarIntervaloTemporizador = () => {
+    // Limpiar cualquier intervalo existente primero
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
     }
     
-    return () => {
-      if (intervalo) clearInterval(intervalo);
-    };
-  }, [sesionActiva]);
+    // Configurar un nuevo intervalo
+    timerInterval.current = setInterval(() => {
+      const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
+      setTiempoSesion(tiempoCalculado);
+    }, 1000);
+  };
+  
+  // Detener el intervalo del temporizador
+  const detenerIntervaloTemporizador = () => {
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+      timerInterval.current = null;
+    }
+  };
+  
+  // Efecto para manejar cambios en el estado de pausa de la sesión
+  useEffect(() => {
+    if (sesionActiva) {
+      if (sesionActiva.pausada) {
+        detenerIntervaloTemporizador();
+      } else {
+        iniciarIntervaloTemporizador();
+      }
+    }
+  }, [sesionActiva?.pausada]);
   
   // Escuchar eventos de visibilidad de la página
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && sesionActiva) {
         // Cuando la página vuelve a ser visible y hay una sesión activa,
-        // recalculamos el tiempo transcurrido
+        // sincronizamos el tiempo transcurrido correctamente
         const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
         setTiempoSesion(tiempoCalculado);
+        
+        // Reiniciar el intervalo si la sesión no está pausada
+        if (!sesionActiva.pausada) {
+          iniciarIntervaloTemporizador();
+        }
+      } else if (document.visibilityState === 'hidden') {
+        // Cuando la página deja de ser visible, pausamos el intervalo
+        // pero NO pausamos la sesión, solo el intervalo de actualización de la UI
+        detenerIntervaloTemporizador();
       }
     };
     
@@ -144,6 +182,9 @@ export const FichajeProvider = ({ children }) => {
           nuevaSesion.tiempoAcumulado,
           nuevaSesion.pausada
         );
+        
+        // Iniciar el intervalo del temporizador
+        iniciarIntervaloTemporizador();
       } else {
         setError(result.message || 'Error al registrar entrada');
       }
@@ -178,6 +219,9 @@ export const FichajeProvider = ({ children }) => {
         // Detener el temporizador en el Service Worker
         serviceWorkerRegistration.stopTimerInSW();
         
+        // Detener el intervalo de actualización
+        detenerIntervaloTemporizador();
+        
         // Limpiar la sesión activa
         fichajeService.clearSesionActiva();
         setSesionActiva(null);
@@ -202,6 +246,13 @@ export const FichajeProvider = ({ children }) => {
       
       if (result.success) {
         setSesionActiva(result.sesion);
+        
+        // Si pausamos, detener el intervalo; si reanudamos, iniciarlo
+        if (pausar) {
+          detenerIntervaloTemporizador();
+        } else {
+          iniciarIntervaloTemporizador();
+        }
         
         // Actualizar el estado de pausa en el Service Worker
         serviceWorkerRegistration.togglePauseTimerInSW(pausar);
@@ -231,6 +282,9 @@ export const FichajeProvider = ({ children }) => {
       if (result.success) {
         // Detener el temporizador en el Service Worker
         serviceWorkerRegistration.stopTimerInSW();
+        
+        // Detener el intervalo de actualización
+        detenerIntervaloTemporizador();
         
         fichajeService.clearSesionActiva();
         setSesionActiva(null);

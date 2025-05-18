@@ -113,33 +113,33 @@ const fichajeService = {
   
   // Calcular tiempo total de sesión activa
   calcularTiempoSesionActiva: () => {
-    const sesion = fichajeService.getSesionActiva();
+  const sesion = fichajeService.getSesionActiva();
+  
+  if (!sesion) {
+    return 0;
+  }
+  
+  // Tiempo base acumulado (útil para pausas)
+  let tiempoTotal = sesion.tiempoAcumulado || 0;
+  
+  // Si la sesión no está pausada, añadimos el tiempo desde la última actualización
+  if (!sesion.pausada) {
+    const fechaInicio = new Date(sesion.ultimaActualizacion);
+    const ahora = new Date();
+    const segundosAdicionales = Math.max(0, (ahora - fechaInicio) / 1000);
+    tiempoTotal += segundosAdicionales;
     
-    if (!sesion) {
-      return 0;
-    }
-    
-    // Tiempo base acumulado (útil para pausas)
-    let tiempoTotal = sesion.tiempoAcumulado || 0;
-    
-    // Si la sesión no está pausada, añadimos el tiempo desde la última actualización
-    if (!sesion.pausada) {
-      const fechaInicio = new Date(sesion.ultimaActualizacion);
-      const ahora = new Date();
-      const segundosAdicionales = (ahora - fechaInicio) / 1000;
-      tiempoTotal += segundosAdicionales;
-      
-      // Actualizar la marca de tiempo para evitar cálculos incorrectos en el futuro
-      // sin afectar al tiempo acumulado
-      const sesionActualizada = {
-        ...sesion,
-        ultimaActualizacion: ahora.toISOString()
-      };
-      fichajeService.setSesionActiva(sesionActualizada);
-    }
-    
-    return tiempoTotal;
-  },
+    // Actualizar la marca de tiempo para cálculos futuros
+    // sin afectar al tiempo acumulado ya calculado
+    const sesionActualizada = {
+      ...sesion,
+      ultimaActualizacion: ahora.toISOString()
+    };
+    fichajeService.setSesionActiva(sesionActualizada);
+  }
+  
+  return tiempoTotal;
+},
 
   registrarFichaje: (tipo, nombre) => {
     const fichajes = fichajeService.getFichajes();

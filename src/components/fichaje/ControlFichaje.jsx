@@ -232,7 +232,7 @@ const ControlFichaje = () => {
         </div>
         
         {/* Sesión activa y temporizador */}
-        {sesionActiva && (
+        {sesionActiva ? (
           <div className={`flex flex-col items-center mb-6 p-4 rounded-lg ${
             sesionActiva.pausada ? 'bg-yellow-50' : 'bg-blue-50'
           }`}>
@@ -283,15 +283,27 @@ const ControlFichaje = () => {
                 Cancelar
               </Button>
             </div>
-             <button 
-      onClick={() => {
-        localStorage.removeItem('sesionActiva');
-        window.location.reload();
-      }}
-      className="mt-4 text-xs text-red-600 underline"
-    >
-      Reiniciar si hay un problema con la sesión
-    </button>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('sesionActiva');
+                window.location.reload();
+              }}
+              className="mt-4 text-xs text-red-600 underline"
+            >
+              Reiniciar si hay un problema con la sesión
+            </button>
+          </div>
+        ) : (
+          /* Botón de Registrar Entrada cuando no hay sesión activa */
+          <div className="flex justify-center mb-6">
+            <Button 
+              onClick={handleRegistrarEntrada}
+              variant="primary"
+              icon={<LogIn className="h-5 w-5" />}
+              className="px-8 py-3 text-lg"
+            >
+              Registrar Entrada
+            </Button>
           </div>
         )}
       </div>
