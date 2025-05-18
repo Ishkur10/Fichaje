@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, LogOut, Save, StopCircle, Timer } from 'lucide-react';
+import { LogIn, LogOut, Save, StopCircle, Timer, Play, Pause } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -14,28 +14,21 @@ const ControlFichaje = () => {
     setNombreEmpleado,
     sesionActiva,
     cancelarSesionActiva,
-    getTiempoSesionActiva
+    togglePausaSesion
   } = useFichaje();
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [nombreTemp, setNombreTemp] = useState(nombreEmpleado);
-  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
   const [alerta, setAlerta] = useState(null);
   
   // Actualizar reloj cada segundo
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-      
-      // Si hay sesión activa, actualizar el tiempo transcurrido
-      if (sesionActiva) {
-        const segundos = getTiempoSesionActiva();
-        setTiempoTranscurrido(segundos);
-      }
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [sesionActiva, getTiempoSesionActiva]);
+  }, []);
   
   // Actualizar nombre temporal cuando cambia el nombre en el contexto
   useEffect(() => {
@@ -153,6 +146,30 @@ const ControlFichaje = () => {
     }
   };
   
+  // Manejar pausa/reanudación
+  const handleTogglePausa = () => {
+    const pausar = !sesionActiva?.pausada;
+    
+    const result = togglePausaSesion(pausar);
+    
+    if (result.success) {
+      setAlerta({
+        type: 'info',
+        message: pausar ? 'Temporizador pausado' : 'Temporizador reanudado'
+      });
+    } else {
+      setAlerta({
+        type: 'error',
+        message: result.message || 'Error al cambiar estado de pausa'
+      });
+    }
+    
+    // Ocultar la alerta después de 3 segundos
+    setTimeout(() => {
+      setAlerta(null);
+    }, 3000);
+  };
+  
   // Formatear la fecha de inicio de sesión
   const formatearFechaInicio = () => {
     if (!sesionActiva) return '';
@@ -216,26 +233,43 @@ const ControlFichaje = () => {
         
         {/* Sesión activa y temporizador */}
         {sesionActiva ? (
-          <div className="flex flex-col items-center mb-6 p-4 bg-blue-50 rounded-lg">
+          <div className={`flex flex-col items-center mb-6 p-4 rounded-lg ${
+            sesionActiva.pausada ? 'bg-yellow-50' : 'bg-blue-50'
+          }`}>
             <div className="mb-2 text-center">
-              <div className="text-sm text-blue-600 font-medium">
+              <div className={`text-sm font-medium ${
+                sesionActiva.pausada ? 'text-yellow-600' : 'text-blue-600'
+              }`}>
                 Sesión iniciada a las {formatearFechaInicio()}
+                {sesionActiva.pausada && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                    Pausada
+                  </span>
+                )}
               </div>
             </div>
             
             <Temporizador 
-              tiempoInicial={tiempoTranscurrido}
-              activo={true}
-              colorBorde="border-blue-500"
-              colorTexto="text-blue-700"
+              colorBorde={sesionActiva.pausada ? "border-yellow-500" : "border-blue-500"}
+              colorTexto={sesionActiva.pausada ? "text-yellow-700" : "text-blue-700"}
             />
             
-            <div className="grid grid-cols-2 gap-3 w-full mt-6">
+            <div className="grid grid-cols-3 gap-3 w-full mt-6">
+              <Button 
+                onClick={handleTogglePausa}
+                variant={sesionActiva.pausada ? "warning" : "info"}
+                icon={sesionActiva.pausada ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                fullWidth
+              >
+                {sesionActiva.pausada ? 'Reanudar' : 'Pausar'}
+              </Button>
+              
               <Button 
                 onClick={handleRegistrarSalida}
                 variant="primary"
                 icon={<LogOut className="h-5 w-5" />}
                 fullWidth
+                disabled={sesionActiva.pausada}
               >
                 Registrar Salida
               </Button>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Play, Pause } from 'lucide-react';
+import useFichaje from '../../hooks/useFichaje';
 
 const formatearTiempo = (segundos) => {
   const horas = Math.floor(segundos / 3600);
@@ -10,34 +11,28 @@ const formatearTiempo = (segundos) => {
 };
 
 const Temporizador = ({ 
-  tiempoInicial = 0, 
-  activo = false, 
   colorBorde = 'border-blue-500',
   colorTexto = 'text-blue-700' 
 }) => {
-  const [tiempo, setTiempo] = useState(tiempoInicial);
-  const [pausa, setPausa] = useState(false);
-
-  useEffect(() => {
-    let intervalo = null;
-    
-    if (activo && !pausa) {
-      intervalo = setInterval(() => {
-        setTiempo(prevTiempo => prevTiempo + 1);
-      }, 1000);
-    } else {
-      clearInterval(intervalo);
-    }
-    
-    return () => clearInterval(intervalo);
-  }, [activo, pausa]);
+  const { 
+    tiempoSesion, 
+    sesionActiva, 
+    togglePausaSesion 
+  } = useFichaje();
   
-
-  const tiempoFormateado = formatearTiempo(tiempo);
+  // Formatear horas, minutos y segundos
+  const tiempoFormateado = formatearTiempo(tiempoSesion);
   
-
-  const horasBase = 8 * 60 * 60; 
-  const porcentaje = Math.min(100, (tiempo / horasBase) * 100);
+  // Calcular el % de avance para el círculo (considerando 8 horas = 100%)
+  const horasBase = 8 * 60 * 60; // 8 horas en segundos
+  const porcentaje = Math.min(100, (tiempoSesion / horasBase) * 100);
+  
+  // Manejar la pausa/reanudación
+  const handleTogglePausa = () => {
+    if (!sesionActiva) return;
+    
+    togglePausaSesion(!sesionActiva.pausada);
+  };
   
   return (
     <div className="flex flex-col items-center">
@@ -60,12 +55,12 @@ const Temporizador = ({
         </div>
       </div>
       
-      {activo && (
+      {sesionActiva && (
         <button 
-          onClick={() => setPausa(!pausa)}
+          onClick={handleTogglePausa}
           className="mt-2 flex items-center text-sm text-gray-600 hover:text-gray-800"
         >
-          {pausa ? (
+          {sesionActiva.pausada ? (
             <>
               <Play className="h-4 w-4 mr-1" /> Continuar
             </>
