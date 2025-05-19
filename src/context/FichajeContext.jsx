@@ -21,6 +21,8 @@ export const FichajeProvider = ({ children }) => {
     clearInterval(timerInterval.current);
     timerInterval.current = null;
   }
+  const tiempoInicial = fichajeService.calcularTiempoSesionActiva();
+  setTiempoSesion(tiempoInicial);
   
 
   timerInterval.current = setInterval(() => {
@@ -28,7 +30,13 @@ export const FichajeProvider = ({ children }) => {
     const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
     
 
-    setTiempoSesion(tiempoCalculado);
+   setTiempoSesion(prevTiempo => {
+      if (Math.abs(tiempoCalculado - prevTiempo) > 0.1) {
+        console.log(`Actualización de temporizador: ${prevTiempo}s -> ${tiempoCalculado}s`);
+        return tiempoCalculado;
+      }
+      return prevTiempo;
+    });
   }, 1000);
   
 };
@@ -289,45 +297,85 @@ export const FichajeProvider = ({ children }) => {
   };
   
   const togglePausaSesion = (pausar) => {
-    try {
-      console.log(`${pausar ? 'Pausando' : 'Reanudando'} sesión...`);
-      
-      if (!sesionActiva) {
-        return {
-          success: false,
-          message: 'No hay sesión activa para pausar/reanudar'
-        };
-      }
-      
-      const result = fichajeService.togglePausaSesion(pausar);
-      
-      if (result.success) {
-        setSesionActiva(result.sesion);
-        
-        if (pausar) {
-          detenerIntervaloTemporizador();
-        } else {
-          iniciarIntervaloTemporizador();
-        }
-        
-        try {
-          serviceWorkerRegistration.togglePauseTimerInSW(pausar);
-        } catch (swError) {
-          console.warn('Error al comunicarse con el Service Worker:', swError);
-        }
-        
-        return result;
-      } else {
-        setError(result.message || 'Error al cambiar estado de pausa');
-        return result;
-      }
-    } catch (err) {
-      console.error("Error en togglePausaSesion:", err);
-      const message = 'Error al cambiar estado de pausa';
-      setError(message);
-      return { success: false, message };
+  try {
+    console.log(`${pausar ? 'Pausando' : 'Reanudando'} sesión...`);
+    
+    if (!sesionActiva) {
+      return {
+        success: false,
+        message: 'No hay sesión activa para pausar/reanudar'
+      };
     }
-  };
+    
+    if (pausar) {
+      console.log('Pausando: Guardando tiempo acumulado hasta ahora');
+      
+      const tiempoActual = fichajeService.calcularTiempoSesionActiva();
+      console.log(`Tiempo acumulado al pausar: ${tiempoActual} segundos`);
+      
+      detenerIntervaloTemporizador();
+      
+      const sesionActualizada = {
+        ...sesionActiva,
+        pausada: true,
+        tiempoAcumulado: tiempoActual, 
+        ultimaActualizacion: new Date().toISOString()
+      };
+      
+
+      setSesionActiva(sesionActualizada);
+      
+
+      fichajeService.setSesionActiva(sesionActualizada);
+      
+      try {
+        serviceWorkerRegistration.togglePauseTimerInSW(true);
+      } catch (error) {
+        console.warn('Error al comunicarse con el Service Worker:', error);
+      }
+      
+      return { 
+        success: true, 
+        sesion: sesionActualizada 
+      };
+    } 
+
+    else {
+      console.log('Reanudando: Manteniendo tiempo acumulado y comenzando a contar desde ahí');
+
+      const tiempoAcumulado = sesionActiva.tiempoAcumulado || 0;
+      console.log(`Reanudando con tiempo acumulado: ${tiempoAcumulado} segundos`);
+
+      const sesionActualizada = {
+        ...sesionActiva,
+        pausada: false,
+        ultimaActualizacion: new Date().toISOString() 
+      };
+      
+      setSesionActiva(sesionActualizada);
+      
+      iniciarIntervaloTemporizador();
+      
+      fichajeService.setSesionActiva(sesionActualizada);
+      
+      try {
+        serviceWorkerRegistration.togglePauseTimerInSW(false);
+      } catch (error) {
+        console.warn('Error al comunicarse con el Service Worker:', error);
+      }
+      
+      return { 
+        success: true, 
+        sesion: sesionActualizada 
+      };
+    }
+  } catch (err) {
+    console.error("Error en togglePausaSesion:", err);
+    const message = 'Error al cambiar estado de pausa';
+    setError(message);
+    return { success: false, message };
+  }
+};
   
   const cancelarSesionActiva = () => {
     try {

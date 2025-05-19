@@ -1,56 +1,206 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, TrendingUp, ChevronDown, ChevronUp, BarChart, PlayCircle } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
-import { calcularEstadisticas } from '../../utils/estadisticasUtils';
-import { formatearFecha } from '../../utils/dateUtils';
 
 const ResumenHoras = () => {
-  const { fichajes, sesionActiva } = useFichaje();
+  const { fichajes, sesionActiva, tiempoSesion } = useFichaje();
   const [estadisticas, setEstadisticas] = useState(null);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('semanaActual');
   const [expandirSemanas, setExpandirSemanas] = useState(false);
   const [expandirDias, setExpandirDias] = useState(false);
   
-
-  useEffect(() => {
+  const formatearTiempo = (segundos) => {
+    const horas = Math.floor(segundos / 3600);
+    const minutos = Math.floor((segundos % 3600) / 60);
+    return { horas, minutos };
+  };
+  
+  const calcularEstadisticas = () => {
     if (fichajes.length === 0 && !sesionActiva) {
       setEstadisticas(null);
       return;
     }
     
-
     const hoy = new Date();
     let fechaInicio = new Date();
     let fechaFin = new Date();
     
     switch (periodoSeleccionado) {
       case 'semanaActual':
-
         fechaInicio.setDate(hoy.getDate() - hoy.getDay() + (hoy.getDay() === 0 ? -6 : 1));
         fechaInicio.setHours(0, 0, 0, 0);
-
         fechaFin.setDate(fechaInicio.getDate() + 6);
         fechaFin.setHours(23, 59, 59, 999);
         break;
-        
       case 'mesActual':
         fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-
         fechaFin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 59, 999);
         break;
-        
       case 'todo':
         fechaInicio = null;
         fechaFin = null;
         break;
-        
       default:
         break;
     }
     
-    const stats = calcularEstadisticas(fichajes, fechaInicio, fechaFin, sesionActiva);
-    setEstadisticas(stats);
-  }, [fichajes, periodoSeleccionado, sesionActiva]);
+
+    const fichajesFiltrados = fechaInicio && fechaFin 
+      ? fichajes.filter(fichaje => {
+          const fecha = new Date(fichaje.fecha);
+          return fecha >= fechaInicio && fecha <= fechaFin;
+        })
+      : [...fichajes];
+      
+    const diasTrabajados = {};
+    
+    const salidasConTiempo = fichajesFiltrados.filter(f => 
+      f.tipo === 'salida' && f.tiempoTrabajado !== undefined && f.entradaId !== undefined
+    );
+    
+    salidasConTiempo.forEach(salida => {
+      const entrada = fichajesFiltrados.find(f => f.id === salida.entradaId);
+      if (entrada) {
+        const fecha = new Date(entrada.fecha).toLocaleDateString();
+        
+        if (!diasTrabajados[fecha]) {
+          diasTrabajados[fecha] = {
+            pares: [],
+            tiempoTotal: 0,
+            fecha: new Date(entrada.fecha)
+          };
+        }
+        
+        diasTrabajados[fecha].pares.push({
+          entrada,
+          salida,
+          tiempoTrabajado: salida.tiempoTrabajado,
+          tiempoFormateado: salida.tiempoFormateado
+        });
+        
+        diasTrabajados[fecha].tiempoTotal += salida.tiempoTrabajado || 0;
+      }
+    });
+    
+    if (sesionActiva) {
+      const entradaSesion = fichajesFiltrados.find(f => f.id === sesionActiva.id);
+      
+      if (entradaSesion) {
+        const fecha = new Date(entradaSesion.fecha).toLocaleDateString();
+        
+        if (!diasTrabajados[fecha]) {
+          diasTrabajados[fecha] = {
+            pares: [],
+            tiempoTotal: 0,
+            fecha: new Date(entradaSesion.fecha)
+          };
+        }
+        
+        const tiempoSesionActual = tiempoSesion;
+        
+        const tiempo = formatearTiempo(tiempoSesionActual);
+        const tiempoFormateado = `${tiempo.horas.toString().padStart(2, '0')}:${tiempo.minutos.toString().padStart(2, '0')}`;
+        
+        diasTrabajados[fecha].pares.push({
+          entrada: entradaSesion,
+          salida: {
+            id: 'virtual',
+            fecha: new Date().toISOString(),
+            tipo: 'salida',
+            virtual: true
+          },
+          tiempoTrabajado: tiempoSesionActual,
+          tiempoFormateado,
+          esActiva: true
+        });
+        
+        diasTrabajados[fecha].tiempoTotal += tiempoSesionActual;
+      }
+    }
+    
+    let totalSegundos = 0;
+    const porDia = [];
+    const semanasMap = {};
+    
+    Object.keys(diasTrabajados).forEach(fecha => {
+      const dia = diasTrabajados[fecha];
+      const tiempoTotal = dia.tiempoTotal;
+      totalSegundos += tiempoTotal;
+      
+      const tiempo = formatearTiempo(tiempoTotal);
+      
+      const fechaObj = dia.fecha;
+      const numSemana = getNumeroSemana(fechaObj);
+      const año = fechaObj.getFullYear();
+      const claveSemana = `${año}-W${numSemana}`;
+      
+      porDia.push({
+        fecha,
+        fechaFormateada: fechaObj.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }),
+        entrada: dia.pares[0]?.entrada.fecha,
+        salida: dia.pares[dia.pares.length - 1]?.salida.fecha,
+        horas: tiempo.horas,
+        minutos: tiempo.minutos,
+        segundos: tiempoTotal,
+        incluyeSesionActiva: dia.pares.some(p => p.esActiva)
+      });
+      
+      if (!semanasMap[claveSemana]) {
+        semanasMap[claveSemana] = {
+          semana: numSemana,
+          año,
+          tiempoTotal: 0,
+          dias: 0,
+          incluyeSesionActiva: false
+        };
+      }
+      
+      semanasMap[claveSemana].tiempoTotal += tiempoTotal;
+      semanasMap[claveSemana].dias += 1;
+      
+      if (dia.pares.some(p => p.esActiva)) {
+        semanasMap[claveSemana].incluyeSesionActiva = true;
+      }
+    });
+    
+    porDia.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    
+    const semanasArray = Object.values(semanasMap).map(semana => {
+      const tiempo = formatearTiempo(semana.tiempoTotal);
+      return {
+        ...semana,
+        horas: tiempo.horas,
+        minutos: tiempo.minutos
+      };
+    }).sort((a, b) => {
+      if (a.año !== b.año) return b.año - a.año;
+      return b.semana - a.semana;
+    });
+    
+    const tiempoTotalFormateado = formatearTiempo(totalSegundos);
+    
+    setEstadisticas({
+      totalHoras: tiempoTotalFormateado.horas,
+      totalMinutos: tiempoTotalFormateado.minutos,
+      totalSegundos,
+      diasTrabajados: Object.keys(diasTrabajados).length,
+      horasPromedioDiario: Object.keys(diasTrabajados).length > 0 
+        ? totalSegundos / (3600 * Object.keys(diasTrabajados).length) 
+        : 0,
+      porDia,
+      semanasArray
+    });
+  };
+  
+  const getNumeroSemana = (fecha) => {
+    const primerDia = new Date(fecha.getFullYear(), 0, 1);
+    const diasPasados = Math.floor((fecha - primerDia) / (24 * 60 * 60 * 1000));
+    return Math.ceil((diasPasados + primerDia.getDay() + 1) / 7);
+  };
+  
+  useEffect(() => {
+    calcularEstadisticas();
+  }, [fichajes, periodoSeleccionado, sesionActiva, tiempoSesion]);
   
   if (!estadisticas || (estadisticas.diasTrabajados === 0 && !sesionActiva)) {
     return (
@@ -241,7 +391,7 @@ const ResumenHoras = () => {
                       Salida
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Horas
+                      Horas Efectivas
                     </th>
                   </tr>
                 </thead>
@@ -257,10 +407,10 @@ const ResumenHoras = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {dia.entrada}
+                        {new Date(dia.entrada).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {dia.salida}
+                        {new Date(dia.salida).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         {dia.incluyeSesionActiva && <span className="text-blue-600 italic"> (actual)</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600 font-medium">
@@ -287,18 +437,18 @@ const ResumenHoras = () => {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <p className="text-gray-500 text-xs">Entrada:</p>
-                      <p className="font-medium">{dia.entrada}</p>
+                      <p className="font-medium">{new Date(dia.entrada).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                     </div>
                     <div>
                       <p className="text-gray-500 text-xs">Salida:</p>
                       <p className="font-medium">
-                        {dia.salida}
+                        {new Date(dia.salida).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         {dia.incluyeSesionActiva && <span className="text-blue-600 italic"> (actual)</span>}
                       </p>
                     </div>
                   </div>
                   <div className="mt-2 pt-2 border-t border-gray-100 text-right">
-                    <span className="text-gray-500 text-xs">Total:</span>
+                    <span className="text-gray-500 text-xs">Tiempo efectivo:</span>
                     <span className="ml-1 font-medium">{dia.horas}h {dia.minutos}m</span>
                   </div>
                 </div>
@@ -310,7 +460,6 @@ const ResumenHoras = () => {
     </div>
   );
 };
-
 
 const PeriodoSelector = ({ periodoSeleccionado, setPeriodoSeleccionado }) => {
   return (

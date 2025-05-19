@@ -114,36 +114,36 @@ const fichajeService = {
 calcularTiempoSesionActiva: () => {
   const sesion = fichajeService.getSesionActiva();
   
-  if (!sesion || !sesion.fechaInicio) {
+  if (!sesion) {
     return 0;
   }
-  
-
-  let tiempoAcumulado = sesion.tiempoAcumulado || 0;
-  
-
-  if (!sesion.pausada) {
-    const ultimaActualizacion = sesion.ultimaActualizacion 
-      ? new Date(sesion.ultimaActualizacion) 
-      : new Date(sesion.fechaInicio);
-      
-    const ahora = new Date();
-    const segundosAdicionales = Math.max(0, (ahora - ultimaActualizacion) / 1000);
-    
-  
-    const tiempoTotal = tiempoAcumulado + segundosAdicionales;
-    
-   
-    fichajeService.setSesionActiva({
-      ...sesion,
-      ultimaActualizacion: ahora.toISOString(),
-      tiempoAcumulado: tiempoTotal 
-    });
-    
-    return tiempoTotal;
+  if (!sesion.fechaInicio) {
+    console.warn("Sesión sin fecha de inicio");
+    return 0;
   }
 
-  return tiempoAcumulado;
+  let tiempoAcumulado = sesion.tiempoAcumulado || 0;
+
+  if (sesion.pausada) {  console.log(`Sesión pausada, tiempo acumulado: ${tiempoAcumulado}s`);
+    return tiempoAcumulado;
+  }
+
+  const ultimaActualizacion = sesion.ultimaActualizacion 
+    ? new Date(sesion.ultimaActualizacion) 
+    : new Date(sesion.fechaInicio);
+  
+  const ahora = new Date();
+  const segundosAdicionales = Math.max(0, (ahora - ultimaActualizacion) / 1000);
+  const tiempoTotal = tiempoAcumulado + segundosAdicionales;
+
+  fichajeService.setSesionActiva({
+    ...sesion,
+    ultimaActualizacion: ahora.toISOString(),
+    tiempoAcumulado: tiempoTotal 
+  });
+  
+  return tiempoTotal;
+    
 },
 
   registrarFichaje: (tipo, nombre) => {
@@ -194,24 +194,21 @@ calcularTiempoSesionActiva: () => {
    getEstadisticasDetalladas: (fechaInicio = null, fechaFin = null, sesionActiva = null) => {
     const fichajes = fichajeService.getFichajes();
     
-    // Si hay una sesión activa, crear un fichaje virtual de salida para calcular estadísticas
+  
     let fichajesConSesionActual = [...fichajes];
     
     if (sesionActiva) {
-      // Buscar si la entrada de la sesión activa ya está en la lista de fichajes
       const entradaExistente = fichajes.find(f => f.id === sesionActiva.id);
       
       if (entradaExistente) {
-        // Crear un fichaje virtual de salida con la hora actual
         const salidaVirtual = {
           id: 'salida-virtual',
           tipo: 'salida',
           fecha: new Date().toISOString(),
           empleado: sesionActiva.empleado,
-          virtual: true // Marcar como virtual para identificarlo
+          virtual: true 
         };
         
-        // Añadir al principio (normalmente se añaden los más recientes primero)
         fichajesConSesionActual = [salidaVirtual, ...fichajesConSesionActual];
       }
     }
