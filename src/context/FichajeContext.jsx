@@ -15,33 +15,22 @@ export const FichajeProvider = ({ children }) => {
   const timerInterval = useRef(null);
 
   const iniciarIntervaloTemporizador = () => {
-  console.log("Iniciando intervalo del temporizador...");
+  
   
   if (timerInterval.current) {
-    console.log("Limpiando intervalo existente");
     clearInterval(timerInterval.current);
     timerInterval.current = null;
   }
+  
 
-  const tiempoInicial = fichajeService.calcularTiempoSesionActiva();
-  console.log(`Iniciando temporizador con tiempo inicial: ${tiempoInicial}s`);
-  
-  setTiempoSesion(tiempoInicial);
-  
   timerInterval.current = setInterval(() => {
-
+  
     const tiempoCalculado = fichajeService.calcularTiempoSesionActiva();
     
-    setTiempoSesion(prevTiempo => {
-      if (Math.abs(tiempoCalculado - prevTiempo) > 0.1) {
-        console.log(`Actualización de temporizador: ${prevTiempo}s -> ${tiempoCalculado}s`);
-        return tiempoCalculado;
-      }
-      return prevTiempo;
-    });
+
+    setTiempoSesion(tiempoCalculado);
   }, 1000);
   
-  console.log("Intervalo establecido con ID:", timerInterval.current);
 };
   
   const detenerIntervaloTemporizador = () => {
@@ -251,150 +240,95 @@ export const FichajeProvider = ({ children }) => {
   };
   
 
-
-// Registrar salida
-const registrarSalida = () => {
-  try {
-    console.log("Registrando salida...");
-    if (!sesionActiva) {
-      setError('No hay ninguna sesión activa para registrar la salida.');
-      return { 
-        success: false, 
-        message: 'No hay sesión activa' 
-      };
-    }
-
-    const tiempoExacto = tiempoSesion;
-    console.log("Tiempo exacto del temporizador al registrar salida:", tiempoExacto);
-    
-    detenerIntervaloTemporizador();
-    
+  const registrarSalida = () => {
     try {
-      serviceWorkerRegistration.stopTimerInSW();
-    } catch (swError) {
-      console.warn('Error al comunicarse con el Service Worker:', swError);
-    }
-    
-    const horas = Math.floor(tiempoExacto / 3600);
-    const minutos = Math.floor((tiempoExacto % 3600) / 60);
-    const segundos = Math.floor(tiempoExacto % 60);
-    
-    const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
-    
-    const result = fichajeService.registrarFichaje(
-      'salida', 
-      nombreEmpleado,
-      {
-        tiempoTrabajado: tiempoExacto, 
-        tiempoFormateado: tiempoFormateado,  
-        entradaId: sesionActiva.id          
+      console.log("Registrando salida...");
+      if (!sesionActiva) {
+        setError('No hay ninguna sesión activa para registrar la salida.');
+        return { 
+          success: false, 
+          message: 'No hay sesión activa' 
+        };
       }
-    );
-    
-    if (result.success) {
-      console.log("Salida registrada correctamente con tiempo trabajado:", tiempoFormateado);
+
+      detenerIntervaloTemporizador();
+
+      try {
+        serviceWorkerRegistration.stopTimerInSW();
+      } catch (swError) {
+        console.warn('Error al comunicarse con el Service Worker:', swError);
+      }
       
       setSesionActiva(null);
       setTiempoSesion(0);
       
-      setFichajes(prevFichajes => [result.fichaje, ...prevFichajes]);
+      const result = fichajeService.registrarFichaje(
+        'salida', 
+        nombreEmpleado
+      );
       
-      fichajeService.clearSesionActiva();
-      
-      return result;
-    } else {
-      setError(result.message || 'Error al registrar salida');
-      
-      return result;
+      if (result.success) {
+        console.log("Salida registrada correctamente:", result.fichaje);
+        
+        setFichajes(prevFichajes => [result.fichaje, ...prevFichajes]);
+        
+        fichajeService.clearSesionActiva();
+        
+        return result;
+      } else {
+        setError(result.message || 'Error al registrar salida');
+        
+        return result;
+      }
+    } catch (err) {
+      console.error("Error en registrarSalida:", err);
+      const message = 'Error al registrar salida';
+      setError(message);
+      return { success: false, message };
     }
-  } catch (err) {
-    console.error("Error en registrarSalida:", err);
-    const message = 'Error al registrar salida';
-    setError(message);
-    return { success: false, message };
-  }
-};
+  };
   
-
-// Pausar o reanudar la sesión con tracking preciso de tiempo acumulado
-const togglePausaSesion = (pausar) => {
-  try {
-    console.log(`${pausar ? 'Pausando' : 'Reanudando'} sesión...`);
-    
-    if (!sesionActiva) {
-      return {
-        success: false,
-        message: 'No hay sesión activa para pausar/reanudar'
-      };
-    }
-    
-    if (pausar) {
-      console.log('Pausando: Guardando tiempo acumulado hasta ahora');
+  const togglePausaSesion = (pausar) => {
+    try {
+      console.log(`${pausar ? 'Pausando' : 'Reanudando'} sesión...`);
       
-      const tiempoActual = fichajeService.calcularTiempoSesionActiva();
-      console.log(`Tiempo acumulado al pausar: ${tiempoActual} segundos`);
-
-      detenerIntervaloTemporizador();
-      
-      const sesionActualizada = {
-        ...sesionActiva,
-        pausada: true,
-        tiempoAcumulado: tiempoActual,
-        ultimaActualizacion: new Date().toISOString()
-      };
-      
-      setSesionActiva(sesionActualizada);
-      
-      fichajeService.setSesionActiva(sesionActualizada);
-      
-      try {
-        serviceWorkerRegistration.togglePauseTimerInSW(true);
-      } catch (error) {
-        console.warn('Error al comunicarse con el Service Worker:', error);
+      if (!sesionActiva) {
+        return {
+          success: false,
+          message: 'No hay sesión activa para pausar/reanudar'
+        };
       }
       
-      return { 
-        success: true, 
-        sesion: sesionActualizada 
-      };
-    } 
-    else {
-      console.log('Reanudando: Manteniendo tiempo acumulado y comenzando a contar desde ahí');
+      const result = fichajeService.togglePausaSesion(pausar);
       
-      const tiempoAcumulado = sesionActiva.tiempoAcumulado || 0;
-      console.log(`Reanudando con tiempo acumulado: ${tiempoAcumulado} segundos`);
-      
-      const sesionActualizada = {
-        ...sesionActiva,
-        pausada: false,
-        ultimaActualizacion: new Date().toISOString()
-      };
-
-      setSesionActiva(sesionActualizada);
-      
-      iniciarIntervaloTemporizador();
-
-      fichajeService.setSesionActiva(sesionActualizada);
-
-      try {
-        serviceWorkerRegistration.togglePauseTimerInSW(false);
-      } catch (error) {
-        console.warn('Error al comunicarse con el Service Worker:', error);
+      if (result.success) {
+        setSesionActiva(result.sesion);
+        
+        if (pausar) {
+          detenerIntervaloTemporizador();
+        } else {
+          iniciarIntervaloTemporizador();
+        }
+        
+        try {
+          serviceWorkerRegistration.togglePauseTimerInSW(pausar);
+        } catch (swError) {
+          console.warn('Error al comunicarse con el Service Worker:', swError);
+        }
+        
+        return result;
+      } else {
+        setError(result.message || 'Error al cambiar estado de pausa');
+        return result;
       }
-      
-      return { 
-        success: true, 
-        sesion: sesionActualizada 
-      };
+    } catch (err) {
+      console.error("Error en togglePausaSesion:", err);
+      const message = 'Error al cambiar estado de pausa';
+      setError(message);
+      return { success: false, message };
     }
-  } catch (err) {
-    console.error("Error en togglePausaSesion:", err);
-    const message = 'Error al cambiar estado de pausa';
-    setError(message);
-    return { success: false, message };
-  }
-};
-
+  };
+  
   const cancelarSesionActiva = () => {
     try {
       console.log("Cancelando sesión activa...");
