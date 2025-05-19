@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Trash2, Edit2, MoreVertical } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Trash2, Edit2, MoreVertical, Clock } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 import { formatearFecha, formatearHora } from '../../utils/dateUtils';
 import EditarFichajeModal from './EditarFichajeModal';
@@ -103,6 +103,16 @@ const HistorialFichajes = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatearHora(fichaje.fecha)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {fichaje.tipo === 'salida' && fichaje.tiempoFormateado ? (
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-1 text-blue-500" />
+                          <span>{fichaje.tiempoFormateado}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button
@@ -179,6 +189,15 @@ const HistorialFichajes = () => {
                       <p className="text-sm text-gray-700">{formatearHora(fichaje.fecha)}</p>
                     </div>
                   </div>
+                   {fichaje.tipo === 'salida' && fichaje.tiempoFormateado && (
+                    <div className="border-t border-gray-100 pt-2 mt-2">
+                      <p className="text-xs text-gray-500 font-medium">Tiempo Trabajado</p>
+                      <p className="text-sm flex items-center text-blue-600">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {fichaje.tiempoFormateado}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

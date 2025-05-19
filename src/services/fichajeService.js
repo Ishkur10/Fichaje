@@ -114,57 +114,66 @@ const fichajeService = {
 calcularTiempoSesionActiva: () => {
   const sesion = fichajeService.getSesionActiva();
   
-  if (!sesion || !sesion.fechaInicio) {
+  if (!sesion) {
     return 0;
   }
   
-
+  if (!sesion.fechaInicio) {
+    console.warn("Sesión sin fecha de inicio");
+    return 0;
+  }
+  
   let tiempoAcumulado = sesion.tiempoAcumulado || 0;
   
-
-  if (!sesion.pausada) {
-    const ultimaActualizacion = sesion.ultimaActualizacion 
-      ? new Date(sesion.ultimaActualizacion) 
-      : new Date(sesion.fechaInicio);
-      
-    const ahora = new Date();
-    const segundosAdicionales = Math.max(0, (ahora - ultimaActualizacion) / 1000);
-    
-  
-    const tiempoTotal = tiempoAcumulado + segundosAdicionales;
-    
-   
-    fichajeService.setSesionActiva({
-      ...sesion,
-      ultimaActualizacion: ahora.toISOString(),
-      tiempoAcumulado: tiempoTotal 
-    });
-    
-    return tiempoTotal;
+  if (sesion.pausada) {
+    console.log(`Sesión pausada, tiempo acumulado: ${tiempoAcumulado}s`);
+    return tiempoAcumulado;
   }
-
-  return tiempoAcumulado;
+  
+  const ultimaActualizacion = sesion.ultimaActualizacion 
+    ? new Date(sesion.ultimaActualizacion) 
+    : new Date(sesion.fechaInicio);
+  
+  const ahora = new Date();
+  const segundosAdicionales = Math.max(0, (ahora - ultimaActualizacion) / 1000);
+  
+  const tiempoTotal = tiempoAcumulado + segundosAdicionales;
+  
+  console.log(`Tiempo acumulado: ${tiempoAcumulado}s + adicional: ${segundosAdicionales.toFixed(1)}s = total: ${tiempoTotal.toFixed(1)}s`);
+  
+  fichajeService.setSesionActiva({
+    ...sesion,
+    ultimaActualizacion: ahora.toISOString(),
+    tiempoAcumulado: tiempoTotal 
+  });
+  
+  return tiempoTotal;
 },
 
-  registrarFichaje: (tipo, nombre) => {
-  const fichajes = fichajeService.getFichajes();  
+registrarFichaje: (tipo, nombre, datos = null) => {
+  const fichajes = fichajeService.getFichajes();
+  
+  const nuevoId = Date.now();
+
   const nuevoFichaje = {
-    id: Date.now(),
+    id: nuevoId,
     tipo,
     fecha: new Date().toISOString(),
     empleado: nombre || 'Sin nombre'
   };
-
-
-  const nuevosFichajes = [nuevoFichaje, ...fichajes];
   
 
+  if (tipo === 'salida' && datos) {
+    nuevoFichaje.tiempoTrabajado = datos.tiempoTrabajado;
+    nuevoFichaje.tiempoFormateado = datos.tiempoFormateado;  
+    nuevoFichaje.entradaId = datos.entradaId;                  
+  }
+  
+  const nuevosFichajes = [nuevoFichaje, ...fichajes];
   storageService.setItem(FICHAJES_KEY, nuevosFichajes);
   
-
-  console.log(`Total fichajes después de registrar ${tipo}:`, nuevosFichajes.length);
-  console.log('Fichaje más reciente:', nuevosFichajes[0]);
-
+  console.log(`Fichaje de ${tipo} registrado:`, nuevoFichaje);
+  
   return { success: true, fichaje: nuevoFichaje, fichajes: nuevosFichajes };
 },
 
@@ -220,77 +229,105 @@ calcularTiempoSesionActiva: () => {
   },
   
 
-  getEstadisticas: (fechaInicio, fechaFin, sesionActiva = null) => {
-    let fichajes = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
-    
 
-    if (sesionActiva) {
+// Enhanced getEstadisticas function that uses timer-based time instead of timestamp difference
 
-      const entradaSesion = fichajes.find(f => f.id === sesionActiva.id);
-      
-      if (entradaSesion) {
-
-        const salidaVirtual = {
-          id: 'salida-virtual',
-          tipo: 'salida',
-          fecha: new Date().toISOString(),
-          empleado: sesionActiva.empleado,
-          virtual: true
-        };
-        
-
-        fichajes = [salidaVirtual, ...fichajes];
-      }
+getEstadisticas: (fechaInicio, fechaFin, sesionActiva = null) => {
+  let fichajes = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
+  
+  // Organizar fichajes por día
+  const fichajesPorDia = {};
+  fichajes.forEach(fichaje => {
+    const fecha = new Date(fichaje.fecha).toLocaleDateString();
+    if (!fichajesPorDia[fecha]) {
+      fichajesPorDia[fecha] = [];
     }
+    fichajesPorDia[fecha].push(fichaje);
+  });
+  
+  // Si hay una sesión activa, añadir un fichaje virtual de salida
+  if (sesionActiva) {
+    // Verificar si la entrada de la sesión está dentro del período
+    const entradaSesion = fichajes.find(f => f.id === sesionActiva.id);
     
-
-    const fichajesPorDia = {};
-    fichajes.forEach(fichaje => {
-      const fecha = new Date(fichaje.fecha).toLocaleDateString();
-      if (!fichajesPorDia[fecha]) {
-        fichajesPorDia[fecha] = [];
+    if (entradaSesion) {
+      // Usar el tiempo actual del temporizador
+      const tiempoActual = fichajeService.calcularTiempoSesionActiva();
+      
+      // Formatear el tiempo para mostrar
+      const horas = Math.floor(tiempoActual / 3600);
+      const minutos = Math.floor((tiempoActual % 3600) / 60);
+      const segundos = Math.floor(tiempoActual % 60);
+      const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+      
+      // Crear un fichaje virtual de salida con el tiempo del temporizador
+      const salidaVirtual = {
+        id: 'salida-virtual',
+        tipo: 'salida',
+        fecha: new Date().toISOString(),
+        empleado: sesionActiva.empleado,
+        virtual: true,
+        tiempoTrabajado: tiempoActual,           // Tiempo en segundos 
+        tiempoFormateado: tiempoFormateado,      // Formato hh:mm:ss
+        entradaId: sesionActiva.id               // ID del fichaje de entrada
+      };
+      
+      // Añadir a la lista de fichajes
+      fichajes = [salidaVirtual, ...fichajes];
+      
+      // Añadir al día correspondiente
+      const fechaVirtual = new Date().toLocaleDateString();
+      if (!fichajesPorDia[fechaVirtual]) {
+        fichajesPorDia[fechaVirtual] = [];
       }
-      fichajesPorDia[fecha].push(fichaje);
-    });
+      fichajesPorDia[fechaVirtual].push(salidaVirtual);
+      
+      console.log("Fichaje virtual añadido con tiempo trabajado:", tiempoFormateado);
+    }
+  }
+  
+  // Inicializar estadísticas
+  const estadisticas = {
+    dias: 0,
+    horasTotales: 0,
+    minutosTotales: 0,
+    detallesPorDia: [],
+    sesionActivaIncluida: !!sesionActiva
+  };
+  
+  // Para cada día, calcular las horas trabajadas
+  Object.keys(fichajesPorDia).forEach(fecha => {
+    const fichajesDia = fichajesPorDia[fecha];
     
-
-    const estadisticas = {
-      dias: 0,
-      horasTotales: 0,
-      minutosTotales: 0,
-      detallesPorDia: [],
-      sesionActivaIncluida: !!sesionActiva
-    };
+    // Ordenar fichajes por fecha
+    fichajesDia.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     
-    Object.keys(fichajesPorDia).forEach(fecha => {
-      const fichajesDia = fichajesPorDia[fecha];
-      fichajesDia.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-      
-
-      let entrada = null;
-      let salida = null;
-      
-      for (const fichaje of fichajesDia) {
-        if (fichaje.tipo === 'entrada' && (!entrada || new Date(fichaje.fecha) < new Date(entrada.fecha))) {
-          entrada = fichaje;
-        }
-        if (fichaje.tipo === 'salida' && (!salida || new Date(fichaje.fecha) > new Date(salida.fecha))) {
-          salida = fichaje;
-        }
-      }
-      
-
-      if (entrada && salida && new Date(salida.fecha) > new Date(entrada.fecha)) {
-        const horasTrabajadas = (new Date(salida.fecha) - new Date(entrada.fecha)) / (1000 * 60 * 60);
+    // Buscar pares de entrada/salida
+    const entradasSalidas = [];
+    
+    // Primer enfoque: buscar salidas con tiempoTrabajado (prioridad máxima)
+    const salidasConTiempo = fichajesDia.filter(f => 
+      f.tipo === 'salida' && f.tiempoTrabajado !== undefined && f.entradaId !== undefined
+    );
+    
+    // Para cada salida con tiempo, buscar su entrada correspondiente
+    salidasConTiempo.forEach(salida => {
+      const entrada = fichajesDia.find(f => f.id === salida.entradaId);
+      if (entrada) {
+        // Usar directamente el tiempo trabajado registrado
+        const segundosTrabajados = salida.tiempoTrabajado;
+        const horasTrabajadas = segundosTrabajados / 3600; // Convertir segundos a horas
         
-
+        // Calcular horas y minutos enteros
         const horas = Math.floor(horasTrabajadas);
         const minutos = Math.round((horasTrabajadas - horas) * 60);
         
+        // Añadir a las estadísticas
         estadisticas.dias++;
         estadisticas.horasTotales += horas;
         estadisticas.minutosTotales += minutos;
         
+        // Añadir detalles por día
         estadisticas.detallesPorDia.push({
           fecha,
           fechaObj: new Date(entrada.fecha),
@@ -299,19 +336,25 @@ calcularTiempoSesionActiva: () => {
           incluyeSesionActiva: !!salida.virtual,
           horas,
           minutos,
+          tiempoFormateado: salida.tiempoFormateado || `${horas}h ${minutos}m`,
           horasTrabajadas
         });
+        
+        // Marcar estos fichajes como procesados
+        entradasSalidas.push({ entrada, salida });
       }
     });
-    
-    if (estadisticas.minutosTotales >= 60) {
-      const horasExtra = Math.floor(estadisticas.minutosTotales / 60);
-      estadisticas.horasTotales += horasExtra;
-      estadisticas.minutosTotales %= 60;
-    }
-    
-    return estadisticas;
+  });
+  
+  // Normalizar minutos (60 minutos = 1 hora)
+  if (estadisticas.minutosTotales >= 60) {
+    const horasExtra = Math.floor(estadisticas.minutosTotales / 60);
+    estadisticas.horasTotales += horasExtra;
+    estadisticas.minutosTotales %= 60;
   }
+  
+  return estadisticas;
+}
 };
 
 export default fichajeService;

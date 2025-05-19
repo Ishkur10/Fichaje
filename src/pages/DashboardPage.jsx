@@ -4,7 +4,7 @@ import ControlFichaje from '../components/fichaje/ControlFichaje';
 import HistorialFichajes from '../components/fichaje/HistorialFichajes';
 import InformeExcel from '../components/fichaje/InformeExcel';
 import ResumenHoras from '../components/fichaje/ResumenHoras';
-import { FileBarChart2, FileClock, FileText, ChartBar } from 'lucide-react';
+import { FileClock, FileText, ChartBar } from 'lucide-react';
 import useFichaje from '../hooks/useFichaje';
 
 const DashboardPage = () => {
