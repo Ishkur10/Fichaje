@@ -443,12 +443,6 @@ const togglePausaSesion = (pausar) => {
       console.log(`Editando fichaje ${fichajeId} a fecha ${nuevaFecha}`);
 
       if (sesionActiva && sesionActiva.id === fichajeId) {
-        const originalStartTime = new Date(sesionActiva.fechaInicio);
-         const timeDiffSeconds = (originalStartTime - nuevaFecha) / 1000;
-         const currentTime = tiempoSesion || 0;
-        const newAccumulatedTime = Math.max(0, currentTime + timeDiffSeconds);
-
-
         const nuevaSesion = {
           ...sesionActiva,
           fechaInicio: nuevaFecha.toISOString(),
@@ -457,7 +451,7 @@ const togglePausaSesion = (pausar) => {
         };
         
         setSesionActiva(nuevaSesion);
-        setTiempoSesion(newAccumulatedTime);
+        setTiempoSesion(0);
         
         fichajeService.setSesionActiva(nuevaSesion);
         
