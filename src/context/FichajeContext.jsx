@@ -266,17 +266,30 @@ export const FichajeProvider = ({ children }) => {
       } catch (swError) {
         console.warn('Error al comunicarse con el Service Worker:', swError);
       }
-      
-      setSesionActiva(null);
-      setTiempoSesion(0);
-      
-      const result = fichajeService.registrarFichaje(
-        'salida', 
-        nombreEmpleado
+      const entradaId = sesionActiva.id;
+    const tiempoTrabajadoActual = tiempoSesion;
+    
+    // Calculate hours and minutes for display format
+    const horas = Math.floor(tiempoTrabajadoActual / 3600);
+    const minutos = Math.floor((tiempoTrabajadoActual % 3600) / 60);
+    const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+    
+    // Now register the checkout with the entradaId and tiempoTrabajado
+    const result = fichajeService.registrarFichaje(
+      'salida', 
+      nombreEmpleado,
+      {
+        entradaId,
+        tiempoTrabajado: tiempoTrabajadoActual,
+        tiempoFormateado
+      }
       );
-      
+
       if (result.success) {
         console.log("Salida registrada correctamente:", result.fichaje);
+
+         setSesionActiva(null);
+      setTiempoSesion(0);
         
         setFichajes(prevFichajes => [result.fichaje, ...prevFichajes]);
         

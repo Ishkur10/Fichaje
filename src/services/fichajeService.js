@@ -146,7 +146,7 @@ calcularTiempoSesionActiva: () => {
     
 },
 
-  registrarFichaje: (tipo, nombre) => {
+  registrarFichaje: (tipo, nombre, options = {}) => {
   const fichajes = fichajeService.getFichajes();  
   const nuevoFichaje = {
     id: Date.now(),
@@ -155,6 +155,11 @@ calcularTiempoSesionActiva: () => {
     empleado: nombre || 'Sin nombre'
   };
 
+  if (tipo === 'salida' && options.entradaId ){
+    nuevoFichaje.entradaId = options.entradaId;
+    nuevoFichaje.timpoTrabajado = options.tiempoTrabajado || 0;
+    nuevoFichaje.tiempoFormateado = options.tiempoFormateado || '00:00';
+  }
 
   const nuevosFichajes = [nuevoFichaje, ...fichajes];
   
