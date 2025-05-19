@@ -23,10 +23,33 @@ const fichajeService = {
       return { success: false, message: 'Fichaje no encontrado' };
     }
     const nuevosFichajes = [...fichajes];
+
     nuevosFichajes[fichajeIndex] = {
       ...nuevosFichajes[fichajeIndex],
       fecha: nuevaFecha.toISOString()
     };
+
+    if (nuevosFichajes[fichajeIndex].tipo === 'entrada') {
+      const entradaId = nuevosFichajes[fichajeIndex].id;
+
+      nuevosFichajes.forEach((fichaje, index) => {
+        if (fichaje.tipo === 'salida' && fichaje.entradaId === entradaId) {
+          const entradaFecha = new Date(nuevaFecha);
+          const salidaFecha = new Date(fichaje.fecha);
+
+          if (salidaFecha > entradaFecha) {
+            const segundosTrabajados = (salidaFecha - entradaFecha)/ 1000;
+            const horas = Math.floor(segundosTrabajados / 3600);
+            const minutos = Math.floor((segundosTrabajados % 3600) / 60);
+            nuevosFichajes[index] = {
+            ...fichaje,
+            tiempoTrabajado: segundosTrabajados,
+            tiempoFormateado: `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`
+          };
+          }
+        }
+      })
+    }
 
     storageService.setItem(FICHAJES_KEY, nuevosFichajes);
     return {

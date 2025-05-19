@@ -438,15 +438,21 @@ export const FichajeProvider = ({ children }) => {
       console.log(`Editando fichaje ${fichajeId} a fecha ${nuevaFecha}`);
 
       if (sesionActiva && sesionActiva.id === fichajeId) {
+
+        const now = new Date();
+        const newStartTime = nuevaFecha;
+
+        const newElapsedSeconds = Math.max(0, (now - newStartTime) / 1000);
+
         const nuevaSesion = {
           ...sesionActiva,
           fechaInicio: nuevaFecha.toISOString(),
-          tiempoAcumulado: 0,
+          tiempoAcumulado: newElapsedSeconds,
           ultimaActualizacion: new Date().toISOString()
         };
         
         setSesionActiva(nuevaSesion);
-        setTiempoSesion(0);
+        setTiempoSesion(newElapsedSeconds);
         
         fichajeService.setSesionActiva(nuevaSesion);
         
