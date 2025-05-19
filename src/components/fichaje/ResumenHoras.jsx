@@ -16,7 +16,14 @@ const ResumenHoras = () => {
   };
   
   const calcularEstadisticas = () => {
+
+    console.log("Calculating statistics with:", { 
+    fichajes, 
+    sesionActiva, 
+    tiempoSesion 
+  });
     if (fichajes.length === 0 && !sesionActiva) {
+      console.log("No fichajes found and no active session");
       setEstadisticas(null);
       return;
     }
@@ -55,7 +62,7 @@ const ResumenHoras = () => {
     const diasTrabajados = {};
     
     const salidasConTiempo = fichajesFiltrados.filter(f => 
-      f.tipo === 'salida' && f.tiempoTrabajado !== undefined && f.entradaId !== undefined
+      f.tipo === 'salida' && f.entradaId !== undefined
     );
     
     salidasConTiempo.forEach(salida => {

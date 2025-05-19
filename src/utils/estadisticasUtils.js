@@ -48,12 +48,15 @@ export const calcularEstadisticas = (fichajes, fechaInicio = null, fechaFin = nu
 
       if (new Date(ultimaSalida.fecha) > new Date(primeraEntrada.fecha)) {
 
-        const tiempoTrabajado = calcularHorasTrabajadas(primeraEntrada.fecha, ultimaSalida.fecha);
-        
-
-        const horas = Math.floor(tiempoTrabajado);
-        const minutos = Math.round((tiempoTrabajado - horas) * 60);
-        
+        let tiempoTrabajado;
+    if (ultimaSalida.tiempoTrabajado !== undefined) {
+      tiempoTrabajado = ultimaSalida.tiempoTrabajado / 3600; // Convert seconds to hours
+    } else {
+      tiempoTrabajado = calcularHorasTrabajadas(primeraEntrada.fecha, ultimaSalida.fecha);
+    }
+    
+    const horas = Math.floor(tiempoTrabajado);
+    const minutos = Math.round((tiempoTrabajado - horas) * 60);
 
         const fechaObj = new Date(primeraEntrada.fecha);
         const numSemana = getWeekNumber(fechaObj);

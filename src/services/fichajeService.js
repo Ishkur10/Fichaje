@@ -180,8 +180,9 @@ calcularTiempoSesionActiva: () => {
 
   if (tipo === 'salida' && options.entradaId ){
     nuevoFichaje.entradaId = options.entradaId;
-    nuevoFichaje.timpoTrabajado = options.tiempoTrabajado || 0;
+    nuevoFichaje.tiempoTrabajado = options.tiempoTrabajado || 0;
     nuevoFichaje.tiempoFormateado = options.tiempoFormateado || '00:00';
+    nuevoFichaje.pausada = options.pausada || false;
   }
 
   const nuevosFichajes = [nuevoFichaje, ...fichajes];

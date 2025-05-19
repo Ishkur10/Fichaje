@@ -268,6 +268,7 @@ export const FichajeProvider = ({ children }) => {
       }
       const entradaId = sesionActiva.id;
     const tiempoTrabajadoActual = tiempoSesion;
+    const estaPausada = sesionActiva.pausada || false;
     
     // Calculate hours and minutes for display format
     const horas = Math.floor(tiempoTrabajadoActual / 3600);
@@ -281,7 +282,8 @@ export const FichajeProvider = ({ children }) => {
       {
         entradaId,
         tiempoTrabajado: tiempoTrabajadoActual,
-        tiempoFormateado
+        tiempoFormateado,
+        pausada: estaPausada
       }
       );
 
