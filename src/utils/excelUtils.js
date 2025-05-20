@@ -11,7 +11,7 @@ import { formatearFecha, formatearHora, calcularHorasTrabajadas } from './dateUt
 export const generarExcel = (fichajes, nombreArchivo, nombreEmpleado) => {
   return new Promise((resolve, reject) => {
     try {
-      // Organizar fichajes por día
+      // Organize check-ins and check-outs by date
       const fichajesPorDia = {};
       
       fichajes.forEach(fichaje => {
@@ -29,78 +29,133 @@ export const generarExcel = (fichajes, nombreArchivo, nombreEmpleado) => {
         fichajesPorDia[fecha].push(fichaje);
       });
       
-      // Crear datos para Excel
+      // Create Excel data
       const datosExcel = [];
+      let totalHorasGlobal = 0;
+      let totalMinutosGlobal = 0;
       
       Object.keys(fichajesPorDia).forEach(fecha => {
         const fichajesDia = fichajesPorDia[fecha];
-        // Ordenar fichajes por hora
+        // Sort check-ins and check-outs by time
         fichajesDia.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         
-        // Buscar entradas y salidas
+        // Find check-ins and check-outs
         const entradas = fichajesDia.filter(f => f.tipo === 'entrada')
           .map(f => formatearHora(f.fecha));
         
-        const salidas = fichajesDia.filter(f => f.tipo === 'salida')
-          .map(f => formatearHora(f.fecha));
+        const salidas = fichajesDia.filter(f => f.tipo === 'salida');
+        const salidasHoras = salidas.map(f => formatearHora(f.fecha));
         
-        // Calcular horas trabajadas si hay al menos una entrada y una salida
-        let horasTrabajadas = '';
+        // Calculate worked hours if there's at least one check-in and check-out
+        let tiempoPausa = '';
+        let tiempoEfectivo = '';
         
         if (entradas.length > 0 && salidas.length > 0) {
-          const primeraEntrada = fichajesDia.find(f => f.tipo === 'entrada');
-          const ultimaSalida = [...fichajesDia].filter(f => f.tipo === 'salida')
-            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+          // Find exit records with registered work time
+          const salidasConTiempo = salidas.filter(s => s.tiempoTrabajado !== undefined && s.entradaId !== undefined);
+          
+          if (salidasConTiempo.length > 0) {
+            // Use the recorded work time that already accounts for pauses
+            let totalSegundos = 0;
             
-          horasTrabajadas = calcularHorasTrabajadas(
-            primeraEntrada.fecha,
-            ultimaSalida.fecha
-          ).toFixed(2);
+            salidasConTiempo.forEach(salida => {
+              totalSegundos += salida.tiempoTrabajado || 0;
+            });
+            
+            // Convert to hours and minutes
+            const horas = Math.floor(totalSegundos / 3600);
+            const minutos = Math.floor((totalSegundos % 3600) / 60);
+            
+            tiempoEfectivo = `${horas}h ${minutos}m`;
+            
+            // Calculate and format pause time
+            const primeraEntrada = fichajesDia.find(f => f.tipo === 'entrada');
+            const ultimaSalida = salidas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+            
+            const tiempoTotal = (new Date(ultimaSalida.fecha) - new Date(primeraEntrada.fecha)) / 1000;
+            const tiempoPausado = tiempoTotal - totalSegundos;
+            
+            if (tiempoPausado > 0) {
+              const horasPausa = Math.floor(tiempoPausado / 3600);
+              const minutosPausa = Math.floor((tiempoPausado % 3600) / 60);
+              tiempoPausa = `${horasPausa}h ${minutosPausa}m`;
+            } else {
+              tiempoPausa = "0h 0m";
+            }
+            
+            // Add to global totals
+            totalHorasGlobal += horas;
+            totalMinutosGlobal += minutos;
+          } else {
+            // Fallback to raw time calculation if no recorded work time
+            const primeraEntrada = fichajesDia.find(f => f.tipo === 'entrada');
+            const ultimaSalida = salidas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+            
+            const tiempoRaw = calcularHorasTrabajadas(primeraEntrada.fecha, ultimaSalida.fecha);
+            const horas = Math.floor(tiempoRaw);
+            const minutos = Math.round((tiempoRaw - horas) * 60);
+
+            tiempoEfectivo = `${horas}h ${minutos}m`;
+            tiempoPausa = "0h 0m"; // No pause info available
+            
+            // Add to global totals
+            totalHorasGlobal += horas;
+            totalMinutosGlobal += minutos;
+          }
         }
         
-        // Añadir a los datos Excel
+        // Add to Excel data
         datosExcel.push({
           'Fecha': fecha,
           'Empleado': nombreEmpleado,
           'Hora Entrada': entradas.join(', '),
-          'Hora Salida': salidas.join(', '),
-          'Horas Trabajadas': horasTrabajadas
+          'Hora Salida': salidasHoras.join(', '),
+          'Tiempo Pausa': tiempoPausa,
+          'Tiempo Efectivo': tiempoEfectivo
         });
       });
       
-      // Calcular totales
-      const totalHoras = datosExcel.reduce((total, row) => {
-        return total + (parseFloat(row['Horas Trabajadas']) || 0);
-      }, 0);
+      // Normalize global minutes to hours
+      if (totalMinutosGlobal >= 60) {
+        const horasExtra = Math.floor(totalMinutosGlobal / 60);
+        totalHorasGlobal += horasExtra;
+        totalMinutosGlobal %= 60;
+      }
       
-      // Añadir fila de totales
+      // Format total time properly
+      const totalFormateado = `${totalHorasGlobal}h ${totalMinutosGlobal}m`;
+      const totalDecimal = `${totalHorasGlobal}.${Math.floor((totalMinutosGlobal / 60) * 100)}`;
+      
+      // Add totals row
       datosExcel.push({
         'Fecha': '',
         'Empleado': '',
         'Hora Entrada': '',
-        'Hora Salida': 'TOTAL HORAS:',
-        'Horas Trabajadas': totalHoras.toFixed(2)
+        'Hora Salida': 'TOTAL:',
+        'Tiempo Pausa': '',
+        'Tiempo Efectivo': totalFormateado
       });
       
-      // Crear libro Excel
+      // Create Excel workbook
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(datosExcel);
       
-      // Ajustar ancho de columnas
+      // Adjust column widths
       const wscols = [
         { wch: 15 }, // Fecha
         { wch: 25 }, // Empleado
         { wch: 15 }, // Hora Entrada
         { wch: 15 }, // Hora Salida
-        { wch: 15 }  // Horas Trabajadas
+        { wch: 15 }, // Tiempo Pausa 
+        { wch: 15 } // Tiempo Efectivo
       ];
       
       ws['!cols'] = wscols;
       
-      // Añadir hoja al libro
+      // Add sheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, 'Fichajes');
       
-      // Guardar archivo
+      // Save file
       XLSX.writeFile(wb, nombreArchivo);
       resolve();
     } catch (error) {
