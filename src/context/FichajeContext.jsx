@@ -443,7 +443,6 @@ export const FichajeProvider = ({ children }) => {
 
         const now = new Date();
         const newStartTime = nuevaFecha;
-
         const newElapsedSeconds = Math.max(0, (now - newStartTime) / 1000);
 
         const nuevaSesion = {

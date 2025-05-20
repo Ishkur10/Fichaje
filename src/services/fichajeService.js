@@ -23,33 +23,108 @@ const fichajeService = {
       return { success: false, message: 'Fichaje no encontrado' };
     }
     const nuevosFichajes = [...fichajes];
+    const fichajeToEdit = nuevosFichajes[fichajeIndex];
 
     nuevosFichajes[fichajeIndex] = {
-      ...nuevosFichajes[fichajeIndex],
+      ...fichajeToEdit,
       fecha: nuevaFecha.toISOString()
     };
 
-    if (nuevosFichajes[fichajeIndex].tipo === 'entrada') {
-      const entradaId = nuevosFichajes[fichajeIndex].id;
 
-      nuevosFichajes.forEach((fichaje, index) => {
-        if (fichaje.tipo === 'salida' && fichaje.entradaId === entradaId) {
-          const entradaFecha = new Date(nuevaFecha);
-          const salidaFecha = new Date(fichaje.fecha);
-
-          if (salidaFecha > entradaFecha) {
-            const segundosTrabajados = (salidaFecha - entradaFecha)/ 1000;
-            const horas = Math.floor(segundosTrabajados / 3600);
-            const minutos = Math.floor((segundosTrabajados % 3600) / 60);
-            nuevosFichajes[index] = {
-            ...fichaje,
-            tiempoTrabajado: segundosTrabajados,
-            tiempoFormateado: `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`
-          };
+    if (fichajeToEdit.tipo === 'entrada') {
+    const entradaId = fichajeToEdit.id;
+    
+    nuevosFichajes.forEach((fichaje, index) => {
+      if (fichaje.tipo === 'salida' && fichaje.entradaId === entradaId) {
+        const entradaFecha = new Date(nuevaFecha);
+        const salidaFecha = new Date(fichaje.fecha);
+        
+        if (salidaFecha > entradaFecha) {
+          let newTiempoTrabajado;
+          
+          if (fichaje.tiempoTrabajado !== undefined) {
+            const originalEntrada = new Date(fichajeToEdit.fecha);
+            const originalTotalTime = (salidaFecha - originalEntrada) / 1000;
+            const originalWorkTime = fichaje.tiempoTrabajado;
+            
+            const workRatio = originalWorkTime / originalTotalTime;
+            
+            const newTotalTime = (salidaFecha - entradaFecha) / 1000;
+            newTiempoTrabajado = Math.max(0, newTotalTime * workRatio);
+          } else {
+            newTiempoTrabajado = (salidaFecha - entradaFecha) / 1000;
           }
+          
+          const horas = Math.floor(newTiempoTrabajado / 3600);
+          const minutos = Math.floor((newTiempoTrabajado % 3600) / 60);
+          const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+          
+          nuevosFichajes[index] = {
+            ...fichaje,
+            tiempoTrabajado: newTiempoTrabajado,
+            tiempoFormateado
+          };
         }
-      })
+      }
+    });
+  } else if (fichajeToEdit.tipo === 'salida' && fichajeToEdit.entradaId) {
+    const entradaIndex = nuevosFichajes.findIndex(f => f.id === fichajeToEdit.entradaId);
+    
+    if (entradaIndex !== -1) {
+      const entradaFecha = new Date(nuevosFichajes[entradaIndex].fecha);
+      const salidaFecha = new Date(nuevaFecha);
+      
+      if (salidaFecha > entradaFecha) {
+
+        let newTiempoTrabajado;
+        
+        if (fichajeToEdit.tiempoTrabajado !== undefined) {
+          const originalSalida = new Date(fichajeToEdit.fecha);
+          const originalTotalTime = (originalSalida - entradaFecha) / 1000;
+          const originalWorkTime = fichajeToEdit.tiempoTrabajado;
+          
+          const workRatio = originalWorkTime / originalTotalTime;
+          
+          const newTotalTime = (salidaFecha - entradaFecha) / 1000;
+          newTiempoTrabajado = Math.max(0, newTotalTime * workRatio);
+        } else {
+          newTiempoTrabajado = (salidaFecha - entradaFecha) / 1000;
+        }
+        
+        const horas = Math.floor(newTiempoTrabajado / 3600);
+        const minutos = Math.floor((newTiempoTrabajado % 3600) / 60);
+        const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+        
+        nuevosFichajes[fichajeIndex] = {
+          ...nuevosFichajes[fichajeIndex],
+          tiempoTrabajado: newTiempoTrabajado,
+          tiempoFormateado
+        };
+      }
     }
+  }
+
+    // if (nuevosFichajes[fichajeIndex].tipo === 'entrada') {
+    //   const entradaId = nuevosFichajes[fichajeIndex].id;
+
+    //   nuevosFichajes.forEach((fichaje, index) => {
+    //     if (fichaje.tipo === 'salida' && fichaje.entradaId === entradaId) {
+    //       const entradaFecha = new Date(nuevaFecha);
+    //       const salidaFecha = new Date(fichaje.fecha);
+
+    //       if (salidaFecha > entradaFecha) {
+    //         const segundosTrabajados = (salidaFecha - entradaFecha)/ 1000;
+    //         const horas = Math.floor(segundosTrabajados / 3600);
+    //         const minutos = Math.floor((segundosTrabajados % 3600) / 60);
+    //         nuevosFichajes[index] = {
+    //         ...fichaje,
+    //         tiempoTrabajado: segundosTrabajados,
+    //         tiempoFormateado: `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`
+    //       };
+    //       }
+    //     }
+    //   })
+    // }
 
     storageService.setItem(FICHAJES_KEY, nuevosFichajes);
     return {
