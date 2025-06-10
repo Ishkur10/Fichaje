@@ -1,9 +1,21 @@
 import storageService from './storageService';
 import { calcularEstadisticas } from '../utils/estadisticasUtils';
+import { esFestivo, esDiaLaborable, calcularHorasTeoricas } from '../utils/festivosUtils';
+import { calcularResumenHorasExtras, calcularHorasSemana } from '../utils/horasExtrasUtils';
+import { procesarHorasExtrasAutomatico } from '../utils/horasExtrasAutomaticoUtils';
+import { 
+  registrarDiaEspecial as registrarDiaEspecialUtil,
+  getDiasEspeciales,
+  esDiaEspecial,
+  getDiasEspecialesPorPeriodo,
+  eliminarDiaEspecial,
+  getEstadisticasDiasEspeciales
+} from '../utils/diasEspecialesUtils';
 
 const FICHAJES_KEY = 'fichajes';
 const EMPLEADO_KEY = 'nombreEmpleado';
 const SESION_ACTIVA_KEY = 'sesionActiva';
+const HORAS_EXTRAS_KEY = 'horasExtras';
 
 const fichajeService = {
   getFichajes: () => {
@@ -245,32 +257,49 @@ calcularTiempoSesionActiva: () => {
 },
 
   registrarFichaje: (tipo, nombre, options = {}) => {
-  const fichajes = fichajeService.getFichajes();  
-  const nuevoFichaje = {
-    id: Date.now(),
-    tipo,
-    fecha: new Date().toISOString(),
-    empleado: nombre || 'Sin nombre'
-  };
+    const fichajes = fichajeService.getFichajes();  
+    const nuevoFichaje = {
+      id: Date.now(),
+      tipo,
+      fecha: new Date().toISOString(),
+      empleado: nombre || 'Sin nombre'
+    };
 
-  if (tipo === 'salida' && options.entradaId ){
-    nuevoFichaje.entradaId = options.entradaId;
-    nuevoFichaje.tiempoTrabajado = options.tiempoTrabajado || 0;
-    nuevoFichaje.tiempoFormateado = options.tiempoFormateado || '00:00';
-    nuevoFichaje.pausada = options.pausada || false;
-  }
+    if (tipo === 'salida' && options.entradaId) {
+      nuevoFichaje.entradaId = options.entradaId;
+      nuevoFichaje.tiempoTrabajado = options.tiempoTrabajado || 0;
+      nuevoFichaje.tiempoFormateado = options.tiempoFormateado || '00:00';
+      nuevoFichaje.pausada = options.pausada || false;
+    }
 
-  const nuevosFichajes = [nuevoFichaje, ...fichajes];
-  
+    const nuevosFichajes = [nuevoFichaje, ...fichajes];
+    storageService.setItem(FICHAJES_KEY, nuevosFichajes);
+    
+    console.log(`Total fichajes después de registrar ${tipo}:`, nuevosFichajes.length);
+    console.log('Fichaje más reciente:', nuevosFichajes[0]);
 
-  storageService.setItem(FICHAJES_KEY, nuevosFichajes);
-  
+    // Procesar horas extras automáticamente si es una salida
+    let resultadoHorasExtras = null;
+    if (tipo === 'salida') {
+      try {
+        resultadoHorasExtras = procesarHorasExtrasAutomatico(
+          nuevosFichajes, 
+          nuevoFichaje, 
+          options.sesionAnterior
+        );
+        console.log('Resultado procesamiento horas extras:', resultadoHorasExtras);
+      } catch (error) {
+        console.error('Error al procesar horas extras automáticamente:', error);
+      }
+    }
 
-  console.log(`Total fichajes después de registrar ${tipo}:`, nuevosFichajes.length);
-  console.log('Fichaje más reciente:', nuevosFichajes[0]);
-
-  return { success: true, fichaje: nuevoFichaje, fichajes: nuevosFichajes };
-},
+    return { 
+      success: true, 
+      fichaje: nuevoFichaje, 
+      fichajes: nuevosFichajes,
+      horasExtras: resultadoHorasExtras
+    };
+  },
 
 
   eliminarFichaje: (fichajeId) => {
@@ -320,6 +349,38 @@ calcularTiempoSesionActiva: () => {
     return calcularEstadisticas(fichajesConSesionActual, fechaInicio, fechaFin);
   },
   
+
+  // Funciones para días festivos y horas extras
+  verificarFestivo: (fecha) => {
+    return esFestivo(fecha, true); // Incluir festivos de Cataluña
+  },
+
+  verificarDiaLaborable: (fecha) => {
+    return esDiaLaborable(fecha, true);
+  },
+
+  calcularHorasTeoricas: (fechaInicio, fechaFin) => {
+    return calcularHorasTeoricas(fechaInicio, fechaFin, 8, true);
+  },
+
+  getHorasExtras: () => {
+    return storageService.getItem(HORAS_EXTRAS_KEY) || [];
+  },
+
+  setHorasExtras: (horasExtras) => {
+    return storageService.setItem(HORAS_EXTRAS_KEY, horasExtras);
+  },
+
+  calcularHorasExtrasSemana: (fichajes, fechaSemana, sesionActiva = null) => {
+    const empleado = fichajeService.getNombreEmpleado();
+    return calcularHorasSemana(fichajes, fechaSemana, sesionActiva, empleado);
+  },
+
+  getResumenHorasExtras: (fechaInicio = null, fechaFin = null, sesionActiva = null) => {
+    const fichajes = fichajeService.getFichajes();
+    const empleado = fichajeService.getNombreEmpleado();
+    return calcularResumenHorasExtras(fichajes, sesionActiva, fechaInicio, fechaFin, empleado);
+  },
 
   getEstadisticas: (fechaInicio, fechaFin, sesionActiva = null) => {
     let fichajes = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
@@ -412,6 +473,114 @@ calcularTiempoSesionActiva: () => {
     }
     
     return estadisticas;
+  },
+
+  // Funciones para días especiales
+  registrarDiaEspecial: (fecha, tipo, motivo, empleado) => {
+    return registrarDiaEspecialUtil(fecha, tipo, motivo, empleado);
+  },
+
+  getDiasEspeciales: () => {
+    return getDiasEspeciales();
+  },
+
+  esDiaEspecial: (fecha, empleado) => {
+    return esDiaEspecial(fecha, empleado);
+  },
+
+  getDiasEspecialesPorPeriodo: (fechaInicio, fechaFin, empleado) => {
+    return getDiasEspecialesPorPeriodo(fechaInicio, fechaFin, empleado);
+  },
+
+  eliminarDiaEspecial: (diaEspecialId) => {
+    return eliminarDiaEspecial(diaEspecialId);
+  },
+
+  getEstadisticasDiasEspeciales: (fechaInicio, fechaFin, empleado) => {
+    return getEstadisticasDiasEspeciales(fechaInicio, fechaFin, empleado);
+  },
+
+  // Función para obtener estadísticas extendidas incluyendo festivos, horas extras y días especiales
+  getEstadisticasExtendidas: (fechaInicio, fechaFin, sesionActiva = null) => {
+    const estadisticasBasicas = fichajeService.getEstadisticas(fechaInicio, fechaFin, sesionActiva);
+    const resumenHorasExtras = fichajeService.getResumenHorasExtras(fechaInicio, fechaFin, sesionActiva);
+    const horasTeoricas = fichajeService.calcularHorasTeoricas(fechaInicio, fechaFin);
+    
+    // Obtener empleado actual (asumiendo que hay un empleado por contexto)
+    const empleadoActual = fichajeService.getNombreEmpleado();
+    const estadisticasDiasEspeciales = fichajeService.getEstadisticasDiasEspeciales(fechaInicio, fechaFin, empleadoActual);
+    
+    // Contar días festivos trabajados
+    const fichajesPeriodo = fichajeService.getFichajesPorFecha(fechaInicio, fechaFin);
+    let diasFestivosTrabajados = 0;
+    let diasFinSemanaTrabajados = 0;
+    
+    const fichajesPorDia = {};
+    fichajesPeriodo.forEach(fichaje => {
+      const fecha = new Date(fichaje.fecha).toLocaleDateString();
+      if (!fichajesPorDia[fecha]) {
+        fichajesPorDia[fecha] = [];
+      }
+      fichajesPorDia[fecha].push(fichaje);
+    });
+    
+    // Incluir sesión activa si existe
+    if (sesionActiva) {
+      const fechaSesion = new Date(sesionActiva.fechaInicio);
+      if (fechaSesion >= fechaInicio && fechaSesion <= fechaFin) {
+        const fecha = fechaSesion.toLocaleDateString();
+        if (!fichajesPorDia[fecha]) {
+          fichajesPorDia[fecha] = [];
+        }
+        
+        const entradaExiste = fichajesPorDia[fecha].some(f => f.id === sesionActiva.id);
+        if (!entradaExiste) {
+          fichajesPorDia[fecha].push({
+            id: sesionActiva.id,
+            tipo: 'entrada',
+            fecha: sesionActiva.fechaInicio,
+            empleado: sesionActiva.empleado
+          });
+        }
+      }
+    }
+    
+    // Incluir días especiales como días trabajados
+    const diasEspecialesPeriodo = fichajeService.getDiasEspecialesPorPeriodo(fechaInicio, fechaFin, empleadoActual);
+    
+    Object.keys(fichajesPorDia).forEach(fecha => {
+      const fichajesDia = fichajesPorDia[fecha];
+      const tieneEntradaYSalida = fichajesDia.some(f => f.tipo === 'entrada') && 
+        (fichajesDia.some(f => f.tipo === 'salida') || 
+         (sesionActiva && new Date(sesionActiva.fechaInicio).toLocaleDateString() === fecha));
+      
+      if (tieneEntradaYSalida) {
+        const fechaObj = new Date(fecha);
+        const infoLaborable = fichajeService.verificarDiaLaborable(fechaObj);
+        
+        if (!infoLaborable.esLaborable) {
+          if (infoLaborable.razon === 'festivo') {
+            diasFestivosTrabajados++;
+          } else if (infoLaborable.razon === 'fin de semana') {
+            diasFinSemanaTrabajados++;
+          }
+        }
+      }
+    });
+    
+    return {
+      ...estadisticasBasicas,
+      horasExtras: resumenHorasExtras,
+      horasTeoricas,
+      diasFestivosTrabajados,
+      diasFinSemanaTrabajados,
+      diasEspeciales: estadisticasDiasEspeciales,
+      // Incluir días especiales en el total de días trabajados
+      diasTotalesConEspeciales: estadisticasBasicas.dias + estadisticasDiasEspeciales.total,
+      horasTotalesConEspeciales: estadisticasBasicas.horasTotales + Math.floor(estadisticasDiasEspeciales.totalHoras),
+      eficiencia: horasTeoricas.horasTeoricas > 0 ? 
+        ((estadisticasBasicas.horasTotales + estadisticasDiasEspeciales.totalHoras) / horasTeoricas.horasTeoricas) * 100 : 0
+    };
   }
 };
 

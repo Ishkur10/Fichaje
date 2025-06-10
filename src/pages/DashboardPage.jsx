@@ -4,7 +4,11 @@ import ControlFichaje from '../components/fichaje/ControlFichaje';
 import HistorialFichajes from '../components/fichaje/HistorialFichajes';
 import InformeExcel from '../components/fichaje/InformeExcel';
 import ResumenHoras from '../components/fichaje/ResumenHoras';
-import { FileBarChart2, FileClock, FileText, ChartBar } from 'lucide-react';
+import HorasExtras from '../components/fichaje/HorasExtras';
+import InfoFestivos from '../components/fichaje/InfoFestivos';
+import GestionDiasEspeciales from '../components/fichaje/GestionDiasEspeciales';
+import ResumenDashboard from '../components/fichaje/ResumenDashboard';
+import { FileBarChart2, FileClock, FileText, ChartBar, Award, Gift, Settings } from 'lucide-react';
 import useFichaje from '../hooks/useFichaje';
 
 const DashboardPage = () => {
@@ -21,6 +25,21 @@ const DashboardPage = () => {
       id: 'estadisticas',
       label: 'Estadísticas',
       icon: <ChartBar className="h-5 w-5" />,
+    },
+    {
+      id: 'horas-extras',
+      label: 'Horas Extras',
+      icon: <Award className="h-5 w-5" />,
+    },
+    {
+      id: 'festivos',
+      label: 'Días Festivos',
+      icon: <Gift className="h-5 w-5" />,
+    },
+    {
+      id: 'dias-especiales',
+      label: 'Días Especiales',
+      icon: <Settings className="h-5 w-5" />,
     },
     {
       id: 'informes',
@@ -59,12 +78,15 @@ const DashboardPage = () => {
         </div>
         
         {activeTab === 'fichajes' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <ControlFichaje />
-            </div>
-            <div className="lg:col-span-2">
-              <HistorialFichajes />
+          <div>
+            <ResumenDashboard />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <ControlFichaje />
+              </div>
+              <div className="lg:col-span-2">
+                <HistorialFichajes />
+              </div>
             </div>
           </div>
         )}
@@ -72,6 +94,24 @@ const DashboardPage = () => {
         {activeTab === 'estadisticas' && (
           <div>
             <ResumenHoras />
+          </div>
+        )}
+        
+        {activeTab === 'horas-extras' && (
+          <div>
+            <HorasExtras />
+          </div>
+        )}
+        
+        {activeTab === 'festivos' && (
+          <div>
+            <InfoFestivos />
+          </div>
+        )}
+        
+        {activeTab === 'dias-especiales' && (
+          <div>
+            <GestionDiasEspeciales />
           </div>
         )}
         

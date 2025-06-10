@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, TrendingUp, ChevronDown, ChevronUp, BarChart, PlayCircle } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, ChevronDown, ChevronUp, BarChart, PlayCircle, Star, Gift } from 'lucide-react';
 import useFichaje from '../../hooks/useFichaje';
 
 const ResumenHoras = () => {
-  const { fichajes, sesionActiva, tiempoSesion } = useFichaje();
+  const { fichajes, sesionActiva, tiempoSesion, getEstadisticasExtendidas, verificarFestivo } = useFichaje();
   const [estadisticas, setEstadisticas] = useState(null);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('semanaActual');
   const [expandirSemanas, setExpandirSemanas] = useState(false);
@@ -16,12 +16,11 @@ const ResumenHoras = () => {
   };
   
   const calcularEstadisticas = () => {
-
     console.log("Calculating statistics with:", { 
-    fichajes, 
-    sesionActiva, 
-    tiempoSesion 
-  });
+      fichajes, 
+      sesionActiva, 
+      tiempoSesion 
+    });
     if (fichajes.length === 0 && !sesionActiva) {
       console.log("No fichajes found and no active session");
       setEstadisticas(null);
@@ -141,6 +140,9 @@ const ResumenHoras = () => {
       const año = fechaObj.getFullYear();
       const claveSemana = `${año}-W${numSemana}`;
       
+      // Verificar si es festivo
+      const infoFestivo = verificarFestivo(fechaObj);
+      
       porDia.push({
         fecha,
         fechaFormateada: fechaObj.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }),
@@ -149,7 +151,10 @@ const ResumenHoras = () => {
         horas: tiempo.horas,
         minutos: tiempo.minutos,
         segundos: tiempoTotal,
-        incluyeSesionActiva: dia.pares.some(p => p.esActiva)
+        incluyeSesionActiva: dia.pares.some(p => p.esActiva),
+        esFestivo: infoFestivo.esFestivo,
+        tipoFestivo: infoFestivo.tipo,
+        nombreFestivo: infoFestivo.nombre
       });
       
       if (!semanasMap[claveSemana]) {
@@ -186,11 +191,15 @@ const ResumenHoras = () => {
     
     const tiempoTotalFormateado = formatearTiempo(totalSegundos);
     
+    // Contar días festivos trabajados
+    const diasFestivosTrabajados = porDia.filter(dia => dia.esFestivo).length;
+    
     setEstadisticas({
       totalHoras: tiempoTotalFormateado.horas,
       totalMinutos: tiempoTotalFormateado.minutos,
       totalSegundos,
       diasTrabajados: Object.keys(diasTrabajados).length,
+      diasFestivosTrabajados,
       horasPromedioDiario: Object.keys(diasTrabajados).length > 0 
         ? totalSegundos / (3600 * Object.keys(diasTrabajados).length) 
         : 0,
@@ -254,7 +263,7 @@ const ResumenHoras = () => {
       )}
       
       {/* Resumen General */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-blue-50 p-4 rounded-lg">
           <h3 className="text-sm text-blue-800 font-medium mb-1">Total Horas Trabajadas</h3>
           <p className="text-2xl font-bold text-blue-700">
@@ -269,7 +278,20 @@ const ResumenHoras = () => {
           </p>
         </div>
         
-        <div className="bg-purple-50 p-4 rounded-lg sm:col-span-2 lg:col-span-1">
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <h3 className="text-sm text-yellow-800 font-medium mb-1 flex items-center">
+            <Gift className="h-4 w-4 mr-1" />
+            Días Festivos
+          </h3>
+          <p className="text-2xl font-bold text-yellow-700">
+            {estadisticas.diasFestivosTrabajados}
+          </p>
+          <p className="text-xs text-yellow-600 mt-1">
+            trabajados
+          </p>
+        </div>
+        
+        <div className="bg-purple-50 p-4 rounded-lg">
           <h3 className="text-sm text-purple-800 font-medium mb-1">Promedio Diario</h3>
           <p className="text-2xl font-bold text-purple-700">
             {estadisticas.horasPromedioDiario.toFixed(1)}h
@@ -406,12 +428,24 @@ const ResumenHoras = () => {
                   {estadisticas.porDia.map((dia, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
-                        {dia.fechaFormateada}
-                        {dia.incluyeSesionActiva && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            <PlayCircle className="h-3 w-3 mr-1" /> Activa
-                          </span>
-                        )}
+                        <div className="flex items-center">
+                          {dia.esFestivo && (
+                            <Gift className="h-4 w-4 mr-2 text-yellow-500" title={dia.nombreFestivo} />
+                          )}
+                          {dia.fechaFormateada}
+                        </div>
+                        <div className="flex items-center mt-1">
+                          {dia.incluyeSesionActiva && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">
+                              <PlayCircle className="h-3 w-3 mr-1" /> Activa
+                            </span>
+                          )}
+                          {dia.esFestivo && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                              <Star className="h-3 w-3 mr-1" /> {dia.nombreFestivo}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {new Date(dia.entrada).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -422,6 +456,7 @@ const ResumenHoras = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600 font-medium">
                         {dia.horas}h {dia.minutos}m
+                        {dia.esFestivo && <span className="text-yellow-600 text-xs block">+festivo</span>}
                       </td>
                     </tr>
                   ))}
@@ -432,14 +467,28 @@ const ResumenHoras = () => {
             {/* Versión móvil - tarjetas */}
             <div className="sm:hidden space-y-3 p-3">
               {estadisticas.porDia.map((dia, index) => (
-                <div key={index} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-                  <div className="font-medium text-gray-800 mb-2 flex items-center">
-                    {dia.fechaFormateada}
-                    {dia.incluyeSesionActiva && (
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                        <PlayCircle className="h-3 w-3 mr-1" /> Activa
-                      </span>
-                    )}
+                <div key={index} className={`bg-white p-3 rounded-lg shadow-sm border-2 transition-all ${
+                  dia.esFestivo ? 'border-yellow-200 bg-yellow-50' : 'border-gray-100'
+                }`}>
+                  <div className="font-medium text-gray-800 mb-2">
+                    <div className="flex items-center">
+                      {dia.esFestivo && (
+                        <Gift className="h-4 w-4 mr-2 text-yellow-500" />
+                      )}
+                      {dia.fechaFormateada}
+                    </div>
+                    <div className="flex items-center mt-1 space-x-1">
+                      {dia.incluyeSesionActiva && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <PlayCircle className="h-3 w-3 mr-1" /> Activa
+                        </span>
+                      )}
+                      {dia.esFestivo && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                          <Star className="h-3 w-3 mr-1" /> {dia.nombreFestivo}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
@@ -457,6 +506,11 @@ const ResumenHoras = () => {
                   <div className="mt-2 pt-2 border-t border-gray-100 text-right">
                     <span className="text-gray-500 text-xs">Tiempo efectivo:</span>
                     <span className="ml-1 font-medium">{dia.horas}h {dia.minutos}m</span>
+                    {dia.esFestivo && (
+                      <span className="block text-yellow-600 text-xs font-medium mt-1">
+                        ✨ Trabajado en festivo
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
